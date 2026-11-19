@@ -165,6 +165,12 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                   <dd>-{formatCents(Number(invoice.discountCents))}</dd>
                 </div>
               ) : null}
+              {Number(invoice.loyaltyDiscountCents) > 0 ? (
+                <div className="flex justify-between text-electric">
+                  <dt>Fidélité ({invoice.loyaltyPointsUsed} point(s))</dt>
+                  <dd>-{formatCents(Number(invoice.loyaltyDiscountCents))}</dd>
+                </div>
+              ) : null}
               <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
                 <dt>Total</dt>
                 <dd>{formatCents(Number(invoice.totalCents))}</dd>

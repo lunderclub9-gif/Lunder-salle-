@@ -47,6 +47,7 @@ export default async function PosPage() {
               creditLimitCents: customers.creditLimitCents,
               creditEnabled: customers.creditEnabled,
               creditBlocked: customers.creditBlocked,
+              loyaltyPoints: customers.loyaltyPoints,
             })
             .from(customers)
             .orderBy(customers.fullName)
@@ -137,6 +138,11 @@ export default async function PosPage() {
         maxDiscountPercent={user.role === "owner" ? 100 : (settings?.maxDiscountPercent ?? 0)}
         allowNegativeStock={settings?.allowNegativeStock ?? false}
         shiftName={shift.registerName}
+        loyalty={{
+          enabled: settings?.loyaltyEnabled ?? false,
+          pointValueCents: Number(settings?.loyaltyPointValueCents ?? 0),
+          minRedeemPoints: settings?.loyaltyMinRedeemPoints ?? 0,
+        }}
       />
 
       <p className="flex items-center gap-2 text-[11px] text-muted">

@@ -206,6 +206,17 @@ export async function updateSettingsAction(
         allowNegativeStock: formData.get("allowNegativeStock") === "on",
         defaultStockThreshold: Math.max(0, Math.floor(Number(formData.get("defaultStockThreshold") ?? 5) || 0)),
         maxDiscountPercent: Math.round(maxDiscount),
+        loyaltyEnabled: formData.get("loyaltyEnabled") === "on",
+        loyaltyPointsPerHundredDzd: Math.max(
+          0,
+          Math.min(10_000, Math.floor(Number(formData.get("loyaltyPointsPerHundredDzd") ?? 0) || 0)),
+        ),
+        loyaltyPointValueCents: Math.max(0, toCents(String(formData.get("loyaltyPointValue") ?? "0") || "0")),
+        loyaltyMinRedeemPoints: Math.max(
+          0,
+          Math.min(1_000_000, Math.floor(Number(formData.get("loyaltyMinRedeemPoints") ?? 0) || 0)),
+        ),
+        whatsappRemindersEnabled: formData.get("whatsappRemindersEnabled") === "on",
         updatedAt: new Date(),
       })
       .where(eq(businessSettings.id, before?.id ?? 1))
@@ -229,4 +240,3 @@ export async function updateSettingsAction(
   }
 }
 
-void toCents;

@@ -21,7 +21,8 @@ export const TEST_PASSWORD = "TestPassword1";
 export async function resetDatabase() {
   await db.execute(sql`
     truncate table
-      audit_logs, idempotency_keys, credit_transactions, payments, invoice_items, invoices,
+      audit_logs, idempotency_keys, whatsapp_messages, loyalty_transactions, customer_requests,
+      credit_transactions, payments, invoice_items, invoices,
       supplier_payments, purchase_items, purchases, supplier_balances, suppliers,
       reservations, maintenance_records,
       stock_movements, session_events, sessions, cash_movements, shifts, login_attempts,

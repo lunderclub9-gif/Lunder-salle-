@@ -5,7 +5,10 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const { pathname, search } = request.nextUrl;
 
-  if (!token && pathname !== "/connexion") {
+  // Page publique de demandes client : accessible sans session, sans exposer les données de la salle.
+  const isPublicRequestPage = pathname.startsWith("/demande/");
+
+  if (!token && pathname !== "/connexion" && !isPublicRequestPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/connexion";
     url.search = "";

@@ -122,6 +122,17 @@ export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
   "loss",
 ]);
 
+export const loyaltyTxTypeEnum = pgEnum("loyalty_tx_type", ["earn", "redeem", "reversal"]);
+
+export const requestTypeEnum = pgEnum("customer_request_type", ["assistance", "order", "other"]);
+
+export const requestStatusEnum = pgEnum("customer_request_status", [
+  "pending",
+  "in_progress",
+  "done",
+  "cancelled",
+]);
+
 /* ------------------------------------------------------------------ *
  * Séquences
  * ------------------------------------------------------------------ */
@@ -224,8 +235,21 @@ export const businessSettings = pgTable("business_settings", {
   defaultStockThreshold: integer("default_stock_threshold").notNull().default(5),
   maxDiscountPercent: integer("max_discount_percent").notNull().default(0),
   sessionBankerRounding: boolean("session_banker_rounding").notNull().default(false),
+  /** Fidélité : désactivée par défaut, aucune règle n'est imposée. */
+  loyaltyEnabled: boolean("loyalty_enabled").notNull().default(false),
+  loyaltyPointsPerHundredDzd: integer("loyalty_points_per_100_dzd").notNull().default(0),
+  loyaltyPointValueCents: bigint("loyalty_point_value_cents", { mode: "number" }).notNull().default(0),
+  loyaltyMinRedeemPoints: integer("loyalty_min_redeem_points").notNull().default(0),
+  /** Rappels WhatsApp : désactivés par défaut, envoi manuel uniquement. */
+  whatsappRemindersEnabled: boolean("whatsapp_reminders_enabled").notNull().default(false),
+  /** Jeton public du formulaire de demandes client (vide = désactivé). */
+  requestToken: text("request_token").notNull().default(""),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  uniqueIndex("business_settings_request_token_unique")
+    .on(t.requestToken)
+    .where(sql`${t.requestToken} <> ''`),
+]);
 
 export const users = pgTable(
   "users",
@@ -365,6 +389,9 @@ export const customers = pgTable(
     creditLimitCents: bigint("credit_limit_cents", { mode: "number" }).notNull().default(0),
     balanceCents: bigint("balance_cents", { mode: "number" }).notNull().default(0),
     creditBlocked: boolean("credit_blocked").notNull().default(false),
+    loyaltyPoints: integer("loyalty_points").notNull().default(0),
+    whatsappConsent: boolean("whatsapp_consent").notNull().default(false),
+    whatsappConsentAt: timestamp("whatsapp_consent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -674,6 +701,8 @@ export const invoices = pgTable(
     paidCents: bigint("paid_cents", { mode: "number" }).notNull().default(0),
     balanceCents: bigint("balance_cents", { mode: "number" }).notNull().default(0),
     creditCents: bigint("credit_cents", { mode: "number" }).notNull().default(0),
+    loyaltyDiscountCents: bigint("loyalty_discount_cents", { mode: "number" }).notNull().default(0),
+    loyaltyPointsUsed: integer("loyalty_points_used").notNull().default(0),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     cancelledBy: uuid("cancelled_by").references(() => users.id, { onDelete: "set null" }),
     cancelReason: text("cancel_reason").notNull().default(""),
@@ -749,6 +778,69 @@ export const creditTransactions = pgTable(
     index("credit_tx_customer_idx").on(t.customerId, t.createdAt),
     index("credit_tx_invoice_idx").on(t.invoiceId),
   ],
+);
+
+/* ------------------------------------------------------------------ *
+ * Fidélité, demandes client et rappels WhatsApp
+ * ------------------------------------------------------------------ */
+
+export const loyaltyTransactions = pgTable(
+  "loyalty_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "restrict" }),
+    invoiceId: uuid("invoice_id").references(() => invoices.id, { onDelete: "restrict" }),
+    type: loyaltyTxTypeEnum("type").notNull(),
+    points: integer("points").notNull(),
+    balanceAfter: integer("balance_after").notNull(),
+    reason: text("reason").notNull().default(""),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("loyalty_tx_customer_idx").on(t.customerId, t.createdAt),
+    index("loyalty_tx_invoice_idx").on(t.invoiceId),
+  ],
+);
+
+export const customerRequests = pgTable(
+  "customer_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    deviceId: uuid("device_id").references(() => devices.id, { onDelete: "set null" }),
+    customerName: text("customer_name").notNull().default(""),
+    customerPhone: text("customer_phone").notNull().default(""),
+    type: requestTypeEnum("type").notNull().default("assistance"),
+    note: text("note").notNull().default(""),
+    status: requestStatusEnum("status").notNull().default("pending"),
+    handledBy: uuid("handled_by").references(() => users.id, { onDelete: "set null" }),
+    handledAt: timestamp("handled_at", { withTimezone: true }),
+    sourceIp: text("source_ip").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("customer_requests_status_idx").on(t.status, t.createdAt),
+    index("customer_requests_device_idx").on(t.deviceId, t.createdAt),
+    index("customer_requests_ip_idx").on(t.sourceIp, t.createdAt),
+  ],
+);
+
+export const whatsappMessages = pgTable(
+  "whatsapp_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "restrict" }),
+    kind: text("kind").notNull().default("balance_reminder"),
+    phone: text("phone").notNull(),
+    message: text("message").notNull(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("whatsapp_messages_customer_idx").on(t.customerId, t.createdAt)],
 );
 
 /* ------------------------------------------------------------------ *
@@ -873,4 +965,6 @@ export type PurchaseItem = typeof purchaseItems.$inferSelect;
 export type SupplierPayment = typeof supplierPayments.$inferSelect;
 export type Reservation = typeof reservations.$inferSelect;
 export type MaintenanceRecord = typeof maintenanceRecords.$inferSelect;
+export type LoyaltyTransaction = typeof loyaltyTransactions.$inferSelect;
+export type CustomerRequest = typeof customerRequests.$inferSelect;
 

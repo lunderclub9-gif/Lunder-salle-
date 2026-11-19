@@ -15,6 +15,7 @@ import { AppError } from "../errors";
 import { logAudit, AUDIT_ACTIONS } from "../audit";
 import type { SessionUser } from "../auth";
 import { requireOpenShift } from "./shifts";
+import { reverseLoyaltyForInvoice } from "./loyalty";
 
 export async function addInvoicePayment(
   user: SessionUser,
@@ -183,6 +184,16 @@ export async function cancelInvoice(
           createdBy: user.id,
         });
       }
+    }
+
+    if (invoice.customerId) {
+      await reverseLoyaltyForInvoice(tx, {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.number,
+        customerId: invoice.customerId,
+        reason: input.reason.trim(),
+        actorId: user.id,
+      });
     }
 
     const [updated] = await tx

@@ -20,6 +20,7 @@ import type { SessionUser } from "../auth";
 import { computeBilling } from "../billing";
 import { formatCents } from "../money";
 import { endSession } from "./sessions";
+import { earnLoyalty, loyaltyConfig, loyaltyValueCents, redeemLoyalty } from "./loyalty";
 
 export type CheckoutPaymentMethod = "cash" | "card" | "mobile" | "transfer";
 
@@ -31,6 +32,8 @@ export interface CheckoutInput {
   discountReason: string;
   payments: Array<{ method: CheckoutPaymentMethod; amountCents: number; reference?: string }>;
   notes?: string;
+  /** Points de fidélité échangés contre une remise (0 = aucun). */
+  loyaltyPoints?: number;
   /** Autorise explicitement la mise en crédit du solde restant. */
   allowCredit?: boolean;
 }
@@ -44,6 +47,9 @@ export interface CheckoutResult {
   paidCents: number;
   creditCents: number;
   balanceCents: number;
+  loyaltyDiscountCents: number;
+  loyaltyPointsUsed: number;
+  loyaltyPointsEarned: number;
 }
 
 async function nextInvoiceNumber(tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) {
@@ -185,7 +191,43 @@ export async function checkout(user: SessionUser, input: CheckoutInput): Promise
       discountCents = Math.round((subtotalCents * Math.round(percent * 100)) / 10_000);
     }
 
-    const totalCents = subtotalCents - discountCents;
+    /* ------------------------------ Client ---------------------------- */
+    let customer: typeof customers.$inferSelect | null = null;
+    if (input.customerId) {
+      const rows = await tx
+        .select()
+        .from(customers)
+        .where(eq(customers.id, input.customerId))
+        .for("update");
+      customer = rows[0] ?? null;
+      if (!customer) throw new AppError("Client introuvable.");
+    }
+
+    /* ------------------------- Fidélité (remise) ---------------------- */
+    const loyalty = loyaltyConfig(settings);
+    const requestedPoints = Math.floor(Number(input.loyaltyPoints ?? 0));
+    let loyaltyDiscountCents = 0;
+    let loyaltyPointsUsed = 0;
+
+    if (requestedPoints > 0) {
+      if (!customer) throw new AppError("Sélectionnez un client pour utiliser ses points de fidélité.");
+      if (requestedPoints > 1_000_000) throw new AppError("Nombre de points invalide.");
+      if (!loyalty.enabled) throw new AppError("Le programme de fidélité est désactivé dans les paramètres.");
+      if (loyalty.pointValueCents <= 0) throw new AppError("La valeur d'un point n'est pas configurée.");
+      if (requestedPoints < loyalty.minRedeemPoints) {
+        throw new AppError(`Minimum d'échange : ${loyalty.minRedeemPoints} point(s).`);
+      }
+      if (requestedPoints > customer.loyaltyPoints) {
+        throw new AppError("Le client ne possède pas autant de points.");
+      }
+      loyaltyDiscountCents = loyaltyValueCents(requestedPoints, loyalty);
+      if (loyaltyDiscountCents > subtotalCents - discountCents) {
+        throw new AppError("La remise fidélité dépasse le montant de la facture.");
+      }
+      loyaltyPointsUsed = requestedPoints;
+    }
+
+    const totalCents = subtotalCents - discountCents - loyaltyDiscountCents;
     if (totalCents < 0) throw new AppError("Le total ne peut pas être négatif.");
 
     /* ---------------------------- Paiements --------------------------- */
@@ -211,17 +253,6 @@ export async function checkout(user: SessionUser, input: CheckoutInput): Promise
     const remainder = totalCents - paidWithoutCredit;
     let creditCents = 0;
     let creditBalanceAfter = 0;
-    let customer: typeof customers.$inferSelect | null = null;
-
-    if (input.customerId) {
-      const rows = await tx
-        .select()
-        .from(customers)
-        .where(eq(customers.id, input.customerId))
-        .for("update");
-      customer = rows[0] ?? null;
-      if (!customer) throw new AppError("Client introuvable.");
-    }
 
     if (remainder > 0) {
       if (!input.allowCredit) {
@@ -279,6 +310,8 @@ export async function checkout(user: SessionUser, input: CheckoutInput): Promise
         paidCents,
         balanceCents: 0,
         creditCents,
+        loyaltyDiscountCents,
+        loyaltyPointsUsed,
         notes: input.notes ?? "",
       })
       .returning();
@@ -322,6 +355,30 @@ export async function checkout(user: SessionUser, input: CheckoutInput): Promise
           createdBy: user.id,
         });
       }
+    }
+
+    /* ----------------------------- Fidélité --------------------------- */
+    let loyaltyPointsEarned = 0;
+    if (customer) {
+      if (loyaltyPointsUsed > 0) {
+        await redeemLoyalty(tx, {
+          customerId: customer.id,
+          invoiceId: invoice!.id,
+          invoiceNumber: number,
+          points: loyaltyPointsUsed,
+          balance: customer.loyaltyPoints,
+          actorId: user.id,
+          config: loyalty,
+        });
+      }
+      loyaltyPointsEarned = await earnLoyalty(tx, {
+        customerId: customer.id,
+        invoiceId: invoice!.id,
+        invoiceNumber: number,
+        totalCents,
+        actorId: user.id,
+        config: loyalty,
+      });
     }
 
     for (const line of lines) {
@@ -376,6 +433,9 @@ export async function checkout(user: SessionUser, input: CheckoutInput): Promise
           totalCents,
           discountCents,
           creditCents,
+          loyaltyDiscountCents,
+          loyaltyPointsUsed,
+          loyaltyPointsEarned,
           payments: cleanPayments.map((payment) => ({
             method: payment.method,
             amountCents: payment.amountCents,
@@ -396,6 +456,9 @@ export async function checkout(user: SessionUser, input: CheckoutInput): Promise
       paidCents,
       creditCents,
       balanceCents: 0,
+      loyaltyDiscountCents,
+      loyaltyPointsUsed,
+      loyaltyPointsEarned,
     };
   });
 }

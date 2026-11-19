@@ -29,6 +29,13 @@
       "when": 1795114771694,
       "tag": "0003_optimal_typhoid_mary",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795117214685,
+      "tag": "0004_low_thing",
+      "breakpoints": true
     }
   ]
 }

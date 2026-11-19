@@ -105,6 +105,12 @@ export default async function TicketPage({
               <span>-{formatCents(Number(invoice.discountCents))}</span>
             </div>
           ) : null}
+          {Number(invoice.loyaltyDiscountCents) > 0 ? (
+            <div className="flex justify-between">
+              <span>Fidélité ({invoice.loyaltyPointsUsed} pts)</span>
+              <span>-{formatCents(Number(invoice.loyaltyDiscountCents))}</span>
+            </div>
+          ) : null}
           <div className="flex justify-between text-[13px] font-bold">
             <span>TOTAL</span>
             <span>{formatCents(Number(invoice.totalCents))}</span>

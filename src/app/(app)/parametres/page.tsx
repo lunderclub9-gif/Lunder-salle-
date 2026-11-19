@@ -5,6 +5,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { Card, CardTitle, Field, Input, PageHeader, Select, Textarea } from "@/components/ui";
 import { ActionForm } from "@/components/action-form";
 import { updateSettingsAction } from "@/app/actions/admin";
+import { centsToInput } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 
@@ -123,6 +124,75 @@ export default async function SettingsPage() {
                     Afficher la taxe sur les documents
                     <span className="block text-[11px] text-muted">
                       Aucune taxe n&apos;est calculée tant que le taux et les règles ne sont pas confirmés.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-surface-2/30 p-3">
+              <p className="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+                Fidélité et rappels clients
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Points par 100 DA dépensés" hint="0 = aucun point attribué.">
+                  <Input
+                    name="loyaltyPointsPerHundredDzd"
+                    type="number"
+                    min={0}
+                    max={10000}
+                    defaultValue={settings?.loyaltyPointsPerHundredDzd ?? 0}
+                  />
+                </Field>
+                <Field label="Valeur d'un point (DA)" hint="Montant déduit lors d'un échange.">
+                  <Input
+                    name="loyaltyPointValue"
+                    inputMode="decimal"
+                    defaultValue={centsToInput(Number(settings?.loyaltyPointValueCents ?? 0))}
+                  />
+                </Field>
+                <Field label="Échange minimum (points)" hint="0 = pas de minimum.">
+                  <Input
+                    name="loyaltyMinRedeemPoints"
+                    type="number"
+                    min={0}
+                    max={1000000}
+                    defaultValue={settings?.loyaltyMinRedeemPoints ?? 0}
+                  />
+                </Field>
+              </div>
+              <p className="mt-2 text-[11px] text-muted">
+                Les points sont calculés en centimes entiers et tracés dans un journal dédié. Aucun taux
+                n&apos;est appliqué tant que vous ne l&apos;avez pas défini.
+              </p>
+
+              <div className="mt-3 space-y-2 text-sm">
+                <label className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    name="loyaltyEnabled"
+                    defaultChecked={settings?.loyaltyEnabled ?? false}
+                    className="mt-0.5 h-4 w-4 accent-[#8b5cf6]"
+                  />
+                  <span>
+                    Activer le programme de fidélité
+                    <span className="block text-[11px] text-muted">
+                      Désactivé par défaut. Sans taux ni valeur de point, aucun point n&apos;est attribué.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    name="whatsappRemindersEnabled"
+                    defaultChecked={settings?.whatsappRemindersEnabled ?? false}
+                    className="mt-0.5 h-4 w-4 accent-[#34d399]"
+                  />
+                  <span>
+                    Autoriser les rappels WhatsApp préparés manuellement
+                    <span className="block text-[11px] text-muted">
+                      Aucun message n&apos;est envoyé automatiquement : l&apos;employé ouvre WhatsApp après
+                      avoir vérifié le consentement du client.
                     </span>
                   </span>
                 </label>

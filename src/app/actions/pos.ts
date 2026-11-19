@@ -51,6 +51,7 @@ export async function checkoutAction(
     const discountPercent = Number(formData.get("discountPercent") ?? 0) || 0;
     const customerId = String(formData.get("customerId") ?? "") || null;
     const useCredit = formData.get("useCredit") === "on";
+    const loyaltyPoints = Math.max(0, Math.floor(Number(formData.get("loyaltyPoints") ?? 0) || 0));
     const idempotencyKey = String(formData.get("idempotencyKey") ?? "") || undefined;
 
     const payload = {
@@ -61,6 +62,7 @@ export async function checkoutAction(
       discountNote: String(formData.get("discountReason") ?? ""),
       payments,
       useCredit,
+      loyaltyPoints,
     };
 
     const execute = () =>
@@ -73,6 +75,7 @@ export async function checkoutAction(
         payments,
         notes: String(formData.get("notes") ?? "").slice(0, 500),
         allowCredit: useCredit,
+        loyaltyPoints,
       });
 
     let result;

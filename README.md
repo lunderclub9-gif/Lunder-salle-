@@ -81,6 +81,16 @@ L'application redirige vers `/connexion` tant qu'aucune session n'est ouverte.
 - **Analytique** (`/analytique`) : tendances multi-périodes (jour/semaine/mois) avec comparaison à la
   période précédente, rétention et réachat des clients identifiés, rotation et couverture du stock,
   produits dormants.
+- **Fidélité** (désactivée par défaut) : points gagnés au taux configuré dans `/parametres`, échange
+  en remise au moment de l'encaissement, historique par client et contre-passation automatique à
+  l'annulation d'une facture. Calculs en entiers, aucune règle de valeur imposée.
+- **Demandes client par QR** (`/demandes`) : lien public propre à la salle (`/demande/[jeton]`),
+  formulaire sans compte, file d'attente staff avec prise en charge, limitation par IP et par
+  appareil. Le jeton se révoque et se régénère depuis la page ; impression du QR dans
+  `/imprimer/demande`.
+- **Rappels WhatsApp** (désactivés par défaut) : consentement horodaté par client, message de rappel
+  de solde préparé côté serveur puis ouvert via un lien `wa.me`. Aucun envoi automatique, chaque
+  préparation est journalisée.
 
 ## Règles de conception
 
@@ -131,6 +141,8 @@ migrations, puis chaque test réinitialise les tables. Aucune donnée de product
 
 ## Hors périmètre à ce stade
 
-Mode hors-ligne et synchronisation, demandes client par QR, notifications WhatsApp, programme de
-fidélité. Ces éléments demandent des décisions métier (et un fournisseur externe pour WhatsApp)
-avant d'être implémentés.
+Mode hors-ligne et synchronisation : l'architecture de cache local et les règles de conflit
+(ventes concurrentes, stock, caisse) restent à définir avant d'être implémentées.
+
+WhatsApp reste volontairement manuel : aucun fournisseur externe (API WhatsApp Business) n'est
+branché, le serveur ne fait que préparer un message et un lien `wa.me` vérifié par un employé.

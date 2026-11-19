@@ -88,4 +88,8 @@ export const AUDIT_ACTIONS = {
   RESERVATION_STATUS: "reservation.statut",
   MAINTENANCE_CREATED: "maintenance.creee",
   MAINTENANCE_COMPLETED: "maintenance.terminee",
+  REQUEST_HANDLED: "demande.traitee",
+  REQUEST_TOKEN_ROTATED: "demande.lien_regenere",
+  WHATSAPP_CONSENT: "client.consentement_whatsapp",
+  WHATSAPP_REMINDER: "client.rappel_whatsapp",
 } as const;

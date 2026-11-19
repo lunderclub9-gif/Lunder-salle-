@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { desc, eq, sql } from "drizzle-orm";
 import { CreditCard, Printer, Wallet } from "lucide-react";
 import { db } from "@/db";
-import { creditTransactions, customers, invoices, users } from "@/db/schema";
+import { businessSettings, creditTransactions, customers, invoices, users } from "@/db/schema";
 import { requirePermission, can } from "@/lib/auth";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatCents, centsToInput } from "@/lib/money";
@@ -25,7 +25,10 @@ import {
 } from "@/components/ui";
 import { ActionForm } from "@/components/action-form";
 import { repaymentAction, setCreditAction, updateCustomerAction } from "@/app/actions/customers";
+import { setWhatsAppConsentAction } from "@/app/actions/whatsapp";
+import { getLoyaltyHistory } from "@/lib/services/loyalty";
 import { getOpenShift } from "@/lib/services/shifts";
+import { WhatsAppReminderButton } from "./whatsapp-reminder";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +36,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const user = await requirePermission(PERMISSIONS.CUSTOMERS_VIEW);
   const { id } = await params;
 
-  const [rows, invoiceRows, creditRows, shift] = await Promise.all([
+  const [rows, invoiceRows, creditRows, loyaltyRows, settingsRows, shift] = await Promise.all([
     db.select().from(customers).where(eq(customers.id, id)).limit(1),
     db
       .select({ invoice: invoices, employee: users.fullName })
@@ -49,6 +52,8 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       .where(eq(creditTransactions.customerId, id))
       .orderBy(desc(creditTransactions.createdAt))
       .limit(50),
+    getLoyaltyHistory(id),
+    db.select().from(businessSettings).limit(1),
     getOpenShift(user.id),
   ]);
 
@@ -67,6 +72,10 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const balance = Number(customer.balanceCents);
   const creditAvailable = Math.max(0, Number(customer.creditLimitCents) - balance);
   const canManageCredit = can(user, PERMISSIONS.CREDIT_MANAGE);
+  const canManageCustomer = can(user, PERMISSIONS.CUSTOMERS_MANAGE);
+  const settings = settingsRows[0];
+  const loyaltyEnabled = settings?.loyaltyEnabled ?? false;
+  const pointValueCents = Number(settings?.loyaltyPointValueCents ?? 0);
 
   return (
     <div className="space-y-6">
@@ -80,7 +89,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <p className="text-xs tracking-wide text-muted uppercase">Dette actuelle</p>
           <p className={`font-display mt-1 text-2xl font-semibold ${balance > 0 ? "text-warning" : ""}`}>
@@ -96,6 +105,19 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             {customer.creditEnabled
               ? `Plafond ${formatCents(Number(customer.creditLimitCents))}`
               : "Crédit non activé"}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-xs tracking-wide text-muted uppercase">Points de fidélité</p>
+          <p className="font-display mt-1 text-2xl font-semibold">
+            {loyaltyEnabled ? customer.loyaltyPoints : "—"}
+          </p>
+          <p className="mt-1 text-[11px] text-muted">
+            {loyaltyEnabled && pointValueCents > 0
+              ? `Valeur : ${formatCents(customer.loyaltyPoints * pointValueCents)}`
+              : loyaltyEnabled
+                ? "Valeur du point non configurée"
+                : "Programme désactivé"}
           </p>
         </Card>
         <Card>
@@ -179,6 +201,42 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               </Table>
             )}
           </Card>
+
+          {loyaltyRows.length > 0 ? (
+            <Card>
+              <CardTitle
+                title="Mouvements de fidélité"
+                subtitle="Chaque point gagné, échangé ou contre-passé est conservé"
+              />
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>Date</Th>
+                    <Th>Type</Th>
+                    <Th>Motif</Th>
+                    <Th className="text-right">Points</Th>
+                    <Th className="text-right">Solde après</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loyaltyRows.map((row) => (
+                    <tr key={row.id}>
+                      <Td className="text-muted">{formatDateFr(row.createdAt)}</Td>
+                      <Td>
+                        {row.type === "earn" ? "Gain" : row.type === "redeem" ? "Échange" : "Contre-passation"}
+                      </Td>
+                      <Td className="max-w-[220px] truncate text-muted">{row.reason || "—"}</Td>
+                      <Td className={`text-right ${row.points < 0 ? "text-warning" : "text-success"}`}>
+                        {row.points > 0 ? "+" : ""}
+                        {row.points}
+                      </Td>
+                      <Td className="text-right font-medium">{row.balanceAfter}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Card>
+          ) : null}
         </div>
 
         <div className="space-y-4">
@@ -271,6 +329,47 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                   </p>
                 </ActionForm>
               )}
+            </Card>
+          ) : null}
+
+          {settings?.whatsappRemindersEnabled && canManageCustomer ? (
+            <Card>
+              <CardTitle
+                title="Rappels WhatsApp"
+                subtitle="Aucun envoi automatique : un employé ouvre WhatsApp."
+              />
+              <ActionForm
+                action={setWhatsAppConsentAction}
+                submitLabel="Enregistrer le consentement"
+                variant="secondary"
+                hidden={{ customerId: customer.id }}
+              >
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    name="whatsappConsent"
+                    defaultChecked={customer.whatsappConsent}
+                    className="mt-0.5 h-4 w-4 accent-[#34d399]"
+                  />
+                  <span>
+                    Le client accepte les rappels WhatsApp
+                    <span className="mt-0.5 block text-[11px] text-muted">
+                      Recueillez son accord oral ou écrit avant de cocher cette case.
+                    </span>
+                  </span>
+                </label>
+                <p className="text-[11px] text-muted">
+                  {customer.whatsappConsentAt
+                    ? `Consentement enregistré le ${formatDateFr(customer.whatsappConsentAt)}.`
+                    : "Aucun consentement enregistré."}
+                </p>
+              </ActionForm>
+
+              {balance > 0 && customer.whatsappConsent ? (
+                <div className="mt-3 border-t border-border pt-3">
+                  <WhatsAppReminderButton customerId={customer.id} />
+                </div>
+              ) : null}
             </Card>
           ) : null}
 

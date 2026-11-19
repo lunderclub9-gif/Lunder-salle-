@@ -21,6 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/tableau-de-bord", label: "Tableau de bord", icon: "dashboard", section: "exploitation", permission: PERMISSIONS.DASHBOARD_VIEW },
     { href: "/sessions", label: "Sessions", icon: "sessions", section: "exploitation", permission: PERMISSIONS.SESSIONS_MANAGE },
     { href: "/reservations", label: "Réservations", icon: "activity", section: "exploitation", permission: PERMISSIONS.RESERVATIONS_MANAGE },
+    { href: "/demandes", label: "Demandes client", icon: "activity", section: "exploitation", permission: PERMISSIONS.SESSIONS_MANAGE },
     { href: "/caisse", label: "Encaissement", icon: "pos", section: "exploitation", permission: PERMISSIONS.POS_SELL },
     { href: "/factures", label: "Factures", icon: "invoices", section: "exploitation", permission: PERMISSIONS.INVOICES_VIEW },
     { href: "/clients", label: "Clients", icon: "customers", section: "exploitation", permission: PERMISSIONS.CUSTOMERS_VIEW },

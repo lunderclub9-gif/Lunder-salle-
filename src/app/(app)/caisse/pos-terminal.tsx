@@ -43,6 +43,7 @@ interface CustomerOption {
   creditLimitCents: number;
   creditEnabled: boolean;
   creditBlocked: boolean;
+  loyaltyPoints: number;
 }
 
 interface PaymentRow {
@@ -62,6 +63,7 @@ export function PosTerminal({
   maxDiscountPercent,
   allowNegativeStock,
   shiftName,
+  loyalty,
 }: {
   pendingSessions: PendingSession[];
   products: ProductOption[];
@@ -72,6 +74,7 @@ export function PosTerminal({
   maxDiscountPercent: number;
   allowNegativeStock: boolean;
   shiftName: string;
+  loyalty: { enabled: boolean; pointValueCents: number; minRedeemPoints: number };
 }) {
   const [state, formAction] = useActionState<CheckoutState, FormData>(checkoutAction, {});
   const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
@@ -81,6 +84,7 @@ export function PosTerminal({
   const [discountReason, setDiscountReason] = useState("");
   const [notes, setNotes] = useState("");
   const [useCredit, setUseCredit] = useState(false);
+  const [loyaltyPointsInput, setLoyaltyPointsInput] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [payments, setPayments] = useState<PaymentRow[]>([
     { key: "p1", method: "cash", amount: "", reference: "" },
@@ -120,7 +124,18 @@ export function PosTerminal({
   const discountCents = canDiscount
     ? Math.round((subtotal * Math.round(percentValue * 100)) / 10_000)
     : 0;
-  const total = Math.max(0, subtotal - discountCents);
+
+  const loyaltyBalance = customer?.loyaltyPoints ?? 0;
+  const loyaltyActive = loyalty.enabled && loyalty.pointValueCents > 0;
+  const maxLoyaltyPoints = loyaltyActive
+    ? Math.min(loyaltyBalance, Math.floor(Math.max(0, subtotal - discountCents) / loyalty.pointValueCents))
+    : 0;
+  const loyaltyPointsUsed = Math.max(
+    0,
+    Math.min(maxLoyaltyPoints, Math.floor(Number(loyaltyPointsInput.replace(",", ".")) || 0)),
+  );
+  const loyaltyValue = loyaltyPointsUsed * loyalty.pointValueCents;
+  const total = Math.max(0, subtotal - discountCents - loyaltyValue);
 
   const paidCents = payments.reduce(
     (sum, payment) => sum + Math.round((Number(payment.amount.replace(",", ".")) || 0) * 100),
@@ -185,6 +200,7 @@ export function PosTerminal({
     setDiscountReason("");
     setNotes("");
     setUseCredit(false);
+    setLoyaltyPointsInput("");
     setPayments([{ key: "p1", method: "cash", amount: "", reference: "" }]);
     setIdempotencyKey(crypto.randomUUID());
   }
@@ -248,6 +264,7 @@ export function PosTerminal({
         </>
       ) : null}
       {useCredit ? <input type="hidden" name="useCredit" value="on" /> : null}
+      <input type="hidden" name="loyaltyPoints" value={loyaltyPointsUsed} />
 
       <div className="space-y-4">
         <Card>
@@ -472,6 +489,9 @@ export function PosTerminal({
                 ) : (
                   <p className="mt-1">Crédit non activé pour ce client.</p>
                 )}
+                {loyaltyActive ? (
+                  <p className="mt-1">Points de fidélité : {loyaltyBalance}</p>
+                ) : null}
               </div>
             ) : null}
 
@@ -498,6 +518,34 @@ export function PosTerminal({
               </div>
             ) : null}
 
+            {loyaltyActive && customer ? (
+              <div className="rounded-xl border border-electric/30 bg-electric/5 p-3">
+                <Field
+                  label="Points de fidélité à utiliser"
+                  hint={
+                    maxLoyaltyPoints > 0
+                      ? `${maxLoyaltyPoints} point(s) disponibles · 1 point = ${formatCents(loyalty.pointValueCents)}`
+                      : loyaltyBalance > 0
+                        ? "Aucun point ne peut être utilisé sur ce total."
+                        : "Ce client n'a pas encore de points."
+                  }
+                >
+                  <Input
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={loyaltyPointsInput}
+                    disabled={maxLoyaltyPoints <= 0}
+                    onChange={(event) => setLoyaltyPointsInput(event.target.value)}
+                  />
+                </Field>
+                {loyaltyPointsUsed > 0 ? (
+                  <p className="mt-1 text-[11px] text-electric">
+                    Remise fidélité : -{formatCents(loyaltyValue)} ({loyaltyPointsUsed} point(s))
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="space-y-1.5 rounded-xl border border-border bg-surface-2/30 p-3 text-sm">
               <div className="flex justify-between text-muted">
                 <span>Sessions</span>
@@ -511,6 +559,12 @@ export function PosTerminal({
                 <div className="flex justify-between text-warning">
                   <span>Remise</span>
                   <span>-{formatCents(discountCents)}</span>
+                </div>
+              ) : null}
+              {loyaltyValue > 0 ? (
+                <div className="flex justify-between text-electric">
+                  <span>Fidélité ({loyaltyPointsUsed} pts)</span>
+                  <span>-{formatCents(loyaltyValue)}</span>
                 </div>
               ) : null}
               <div className="mt-1 flex justify-between border-t border-border pt-2 text-base font-semibold">
