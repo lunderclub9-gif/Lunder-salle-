@@ -20,6 +20,10 @@ dist
 
 # Journaux locaux
 *.log
+*.pid
+
+# Captures et artefacts de vérification locale
+/artifacts/
 
 # Divers
 .DS_Store

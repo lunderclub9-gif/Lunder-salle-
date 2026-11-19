@@ -8,6 +8,24 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "2mb",
     },
   },
+  // La base de développement (.pgdata), les journaux et les captures vivent dans
+  // le projet : sans exclusion, leurs écritures relancent la compilation en boucle.
+  webpack(config, { dev }) {
+    if (dev) {
+      config.watchOptions = {
+        ...config.watchOptions,
+        ignored: [
+          "**/node_modules/**",
+          "**/.git/**",
+          "**/.next/**",
+          "**/.pgdata/**",
+          "**/artifacts/**",
+          "**/*.log",
+        ],
+      };
+    }
+    return config;
+  },
   async headers() {
     return [
       {
