@@ -21,6 +21,7 @@ import { getDashboardData, resolveRange, type SalesPreset } from "@/lib/services
 import { formatCents } from "@/lib/money";
 import { cn } from "@/lib/cn";
 import { Badge, Card, CardTitle, PageHeader, StatCard, Table, Td, Th, buttonClass } from "@/components/ui";
+import { listLowStockProducts } from "@/lib/services/stock";
 import { SalesChart } from "@/components/sales-chart";
 import { DeviceStatusDonut } from "@/components/device-status-donut";
 import { DEVICE_STATUS_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/labels";
@@ -52,7 +53,7 @@ export default async function DashboardPage({
     params.range === "week" || params.range === "month" ? params.range : "today";
   const range = resolveRange(preset);
 
-  const [data, settingsRows, deviceStatusRows] = await Promise.all([
+  const [data, settingsRows, deviceStatusRows, lowStock] = await Promise.all([
     getDashboardData(range.from, range.to),
     db.select().from(businessSettings).limit(1),
     db
@@ -60,7 +61,9 @@ export default async function DashboardPage({
       .from(devices)
       .where(eq(devices.isActive, true))
       .groupBy(devices.status),
+    listLowStockProducts(),
   ]);
+
 
   const settings = settingsRows[0];
   const grossProfit = data.revenueCents - data.cogsCents;
@@ -124,6 +127,24 @@ export default async function DashboardPage({
               </div>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {lowStock.length > 0 ? (
+        <div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/5 p-4">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <div className="text-sm">
+            <p className="font-medium text-warning">{lowStock.length} produit(s) sous le seuil de stock</p>
+            <p className="mt-0.5 text-muted">
+              {lowStock.slice(0, 4).map((p) => `${p.name} (${p.stockQuantity})`).join(" · ")}
+              {lowStock.length > 4 ? " …" : ""}
+            </p>
+            {can(user, PERMISSIONS.PRODUCTS_VIEW) ? (
+              <Link href="/stock" className="mt-2 inline-flex text-xs text-warning hover:underline">
+                Ouvrir le suivi du stock →
+              </Link>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
