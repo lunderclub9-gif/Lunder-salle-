@@ -142,3 +142,24 @@ export const SUPPLIER_PAYMENT_STATUS_LABELS: Record<string, string> = {
   paid: "Payé",
   returned: "Retourné",
 };
+
+export const RESERVATION_STATUS_LABELS: Record<string, string> = {
+  booked: "Réservée",
+  seated: "Installée",
+  cancelled: "Annulée",
+  no_show: "Absente",
+};
+
+export const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
+  open: "Ouverte",
+  in_progress: "En cours",
+  done: "Terminée",
+  cancelled: "Annulée",
+};
+
+export const MAINTENANCE_KIND_LABELS: Record<string, string> = {
+  preventive: "Préventive",
+  corrective: "Corrective",
+  cleaning: "Nettoyage",
+  inspection: "Inspection",
+};

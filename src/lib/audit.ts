@@ -83,4 +83,9 @@ export const AUDIT_ACTIONS = {
   SUPPLIER_PAYMENT_RECORDED: "fournisseur.paiement",
   SUPPLIER_PAYMENT_RETURNED: "fournisseur.remboursement",
   STOCK_ADJUSTED: "stock.ajuste",
+  RESERVATION_CREATED: "reservation.creee",
+  RESERVATION_CANCELLED: "reservation.annulee",
+  RESERVATION_STATUS: "reservation.statut",
+  MAINTENANCE_CREATED: "maintenance.creee",
+  MAINTENANCE_COMPLETED: "maintenance.terminee",
 } as const;

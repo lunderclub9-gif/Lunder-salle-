@@ -20,6 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const candidates: Array<NavItem & { permission: string }> = [
     { href: "/tableau-de-bord", label: "Tableau de bord", icon: "dashboard", section: "exploitation", permission: PERMISSIONS.DASHBOARD_VIEW },
     { href: "/sessions", label: "Sessions", icon: "sessions", section: "exploitation", permission: PERMISSIONS.SESSIONS_MANAGE },
+    { href: "/reservations", label: "Réservations", icon: "activity", section: "exploitation", permission: PERMISSIONS.RESERVATIONS_MANAGE },
     { href: "/caisse", label: "Encaissement", icon: "pos", section: "exploitation", permission: PERMISSIONS.POS_SELL },
     { href: "/factures", label: "Factures", icon: "invoices", section: "exploitation", permission: PERMISSIONS.INVOICES_VIEW },
     { href: "/clients", label: "Clients", icon: "customers", section: "exploitation", permission: PERMISSIONS.CUSTOMERS_VIEW },
@@ -27,6 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/produits", label: "Produits", icon: "products", section: "gestion", permission: PERMISSIONS.PRODUCTS_VIEW },
     { href: "/stock", label: "Stock & mouvements", icon: "activity", section: "gestion", permission: PERMISSIONS.PRODUCTS_VIEW },
     { href: "/appareils", label: "Appareils", icon: "devices", section: "gestion", permission: PERMISSIONS.DEVICES_MANAGE },
+    { href: "/maintenance", label: "Maintenance", icon: "activity", section: "gestion", permission: PERMISSIONS.MAINTENANCE_MANAGE },
     { href: "/equipe", label: "Équipe", icon: "staff", section: "gestion", permission: PERMISSIONS.STAFF_MANAGE },
     { href: "/audit", label: "Journal d'audit", icon: "audit", section: "gestion", permission: PERMISSIONS.AUDIT_VIEW },
     { href: "/depenses", label: "Dépenses", icon: "expenses", section: "gestion", permission: PERMISSIONS.EXPENSES_MANAGE },

@@ -375,6 +375,59 @@ export const customers = pgTable(
 );
 
 /* ------------------------------------------------------------------ *
+ * Réservations et maintenance
+ * ------------------------------------------------------------------ */
+
+export const reservationStatusEnum = pgEnum("reservation_status", ["booked", "seated", "cancelled", "no_show"]);
+
+export const reservations = pgTable(
+  "reservations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "restrict" }),
+    customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
+    customerName: text("customer_name").notNull(),
+    customerPhone: text("customer_phone").notNull().default(""),
+    partySize: integer("party_size").notNull().default(1),
+    startAt: timestamp("start_at", { withTimezone: true }).notNull(),
+    endAt: timestamp("end_at", { withTimezone: true }).notNull(),
+    status: reservationStatusEnum("status").notNull().default("booked"),
+    notes: text("notes").notNull().default(""),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("reservations_device_idx").on(t.deviceId, t.startAt),
+    index("reservations_status_idx").on(t.status, t.startAt),
+  ],
+);
+
+export const maintenanceStatusEnum = pgEnum("maintenance_status", ["open", "in_progress", "done", "cancelled"]);
+
+export const maintenanceRecords = pgTable(
+  "maintenance_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "restrict" }),
+    kind: text("kind").notNull().default("corrective"),
+    description: text("description").notNull(),
+    resolution: text("resolution").notNull().default(""),
+    costCents: bigint("cost_cents", { mode: "number" }).notNull().default(0),
+    status: maintenanceStatusEnum("status").notNull().default("open"),
+    technicianId: uuid("technician_id").references(() => users.id, { onDelete: "set null" }),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("maintenance_device_idx").on(t.deviceId, t.startedAt)],
+);
+
+/* ------------------------------------------------------------------ *
  * Shifts et caisse
  * ------------------------------------------------------------------ */
 
@@ -749,6 +802,19 @@ export const usersRelations = relations(users, ({ many }) => ({
 export const devicesRelations = relations(devices, ({ many }) => ({
   sessions: many(gameSessions),
   statusHistory: many(deviceStatusHistory),
+  reservations: many(reservations),
+  maintenance: many(maintenanceRecords),
+}));
+
+export const reservationsRelations = relations(reservations, ({ one }) => ({
+  device: one(devices, { fields: [reservations.deviceId], references: [devices.id] }),
+  customer: one(customers, { fields: [reservations.customerId], references: [customers.id] }),
+  creator: one(users, { fields: [reservations.createdBy], references: [users.id] }),
+}));
+
+export const maintenanceRecordsRelations = relations(maintenanceRecords, ({ one }) => ({
+  device: one(devices, { fields: [maintenanceRecords.deviceId], references: [devices.id] }),
+  technician: one(users, { fields: [maintenanceRecords.technicianId], references: [users.id] }),
 }));
 
 export const gameSessionsRelations = relations(gameSessions, ({ one, many }) => ({
@@ -805,4 +871,6 @@ export type SupplierBalance = typeof supplierBalances.$inferSelect;
 export type Purchase = typeof purchases.$inferSelect;
 export type PurchaseItem = typeof purchaseItems.$inferSelect;
 export type SupplierPayment = typeof supplierPayments.$inferSelect;
+export type Reservation = typeof reservations.$inferSelect;
+export type MaintenanceRecord = typeof maintenanceRecords.$inferSelect;
 

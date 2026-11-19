@@ -30,6 +30,8 @@ export const PERMISSIONS = {
   HANDOVER_MANAGE: "handover.manage",
   BACKUP_MANAGE: "backup.manage",
   FINANCIAL_AUDIT_VIEW: "financial_audit.view",
+  RESERVATIONS_MANAGE: "reservations.manage",
+  MAINTENANCE_MANAGE: "maintenance.manage",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -72,6 +74,8 @@ export const ROLE_DEFAULTS: Record<Role, Permission[]> = {
     PERMISSIONS.FINANCIAL_AUDIT_VIEW,
     PERMISSIONS.SUPPLIERS_MANAGE,
     PERMISSIONS.PURCHASES_MANAGE,
+    PERMISSIONS.RESERVATIONS_MANAGE,
+    PERMISSIONS.MAINTENANCE_MANAGE,
   ],
   cashier: [
     PERMISSIONS.DASHBOARD_VIEW,
@@ -81,6 +85,7 @@ export const ROLE_DEFAULTS: Record<Role, Permission[]> = {
     PERMISSIONS.CUSTOMERS_VIEW,
     PERMISSIONS.PRODUCTS_VIEW,
     PERMISSIONS.SHIFTS_OWN,
+    PERMISSIONS.RESERVATIONS_MANAGE,
   ],
   technician: [PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.PRODUCTS_VIEW],
   viewer: [
@@ -119,4 +124,6 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   [PERMISSIONS.FINANCIAL_AUDIT_VIEW]: "Consulter l'audit financier",
   [PERMISSIONS.SUPPLIERS_MANAGE]: "Gérer les fournisseurs",
   [PERMISSIONS.PURCHASES_MANAGE]: "Gérer les achats",
+  [PERMISSIONS.RESERVATIONS_MANAGE]: "Gérer les réservations",
+  [PERMISSIONS.MAINTENANCE_MANAGE]: "Gérer la maintenance",
 };

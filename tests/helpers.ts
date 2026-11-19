@@ -23,6 +23,7 @@ export async function resetDatabase() {
     truncate table
       audit_logs, idempotency_keys, credit_transactions, payments, invoice_items, invoices,
       supplier_payments, purchase_items, purchases, supplier_balances, suppliers,
+      reservations, maintenance_records,
       stock_movements, session_events, sessions, cash_movements, shifts, login_attempts,
       auth_sessions, user_permissions, role_permissions, customers, products, product_categories,
       device_status_history, devices, users, business_settings
