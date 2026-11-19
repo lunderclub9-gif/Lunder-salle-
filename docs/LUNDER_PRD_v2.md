@@ -1,12 +1,13 @@
 # LUNDER — Gaming Lounge Management System
-## Product Requirements Document (PRD) — Version 2.0
+## Product Requirements Document (PRD) — Version 3.1
 
 **Product:** LUNDER  
 **Business:** Gaming lounge in Algeria  
 **Currency:** DZD  
 **Timezone:** Africa/Algiers  
 **Application language:** French only  
-**Status:** Revised implementation specification
+**Status:** Consolidated development specification — supersedes the previous V2 content.
+**Revision note:** This document keeps the practical delivery structure while strengthening financial integrity, owner protection, auditability, customer history, security and acceptance testing.
 
 ---
 
@@ -65,6 +66,14 @@ Employees must not, unless explicitly authorized:
 
 Sensitive actions require the configured approval level and must record actor, approver, reason, timestamp and source operation.
 
+### 3.1 Owner account protection
+- The primary owner account is the highest-trust account and cannot be demoted, disabled, deleted or have its recovery details changed by an employee or manager.
+- Only the authenticated primary owner may transfer ownership or change primary-owner credentials/recovery settings.
+- Require re-authentication (and MFA where available) for sensitive owner-account changes.
+- Never expose password hashes, recovery secrets or authentication tokens in the UI, logs or API responses.
+- Provide a secure owner recovery procedure; do not implement a hidden universal backdoor account.
+- Enforce these rules server-side and test direct API/database access, not only the interface.
+
 ## 4. Owner dashboard
 
 Provide date-filtered summaries for:
@@ -115,6 +124,13 @@ Employee actions:
 Each session stores device, employee, start/pause/resume/end timestamps, billable duration, pricing-rule snapshot, match count where relevant, status/history and invoice reference.
 
 Use server-authoritative timestamps. Paused time is not charged. Price changes must not silently alter an already-running session's agreed pricing. Billing and rounding rules must be explicit and testable.
+
+Additional session safeguards:
+- Prevent double-start and overlapping active sessions on the same resource using server/database constraints or atomic operations.
+- Make start, pause, resume, transfer and end operations idempotent so retries do not create duplicate sessions or charges.
+- Preserve a complete event history for every session.
+- A device transfer must close the previous resource allocation and open the new one atomically, without resetting elapsed billable time.
+- Adding products during a session must update the same visit/invoice safely and must not create duplicate invoice lines on network retries.
 
 ## 7. Visits, invoices and payments
 
@@ -226,6 +242,21 @@ Use consistent definitions:
 
 Reports: daily/weekly/monthly summaries; sales by category/device/employee; product margins and stock movement; customer credit; shift/cash variance; expenses/supplier balances; gross profit/net result/cash flow; device utilization and session duration. Export CSV/Excel and PDF. Every report states date range, currency and calculation basis.
 
+### 13.1 Financial integrity rules
+- Revenue, invoices issued, payments collected, customer credit created, customer credit repaid, refunds, expenses and cash movements must be separate metrics.
+- Creating an unpaid invoice or customer debt is not a cash receipt.
+- Collecting an old debt is a new payment/cash-flow event; it must not count the original sale as new revenue a second time.
+- A non-cash payment must never increase the physical cash drawer.
+- Product gross margin must use the cost basis recorded for the sold units; document the selected costing method (for example, weighted average or FIFO) and apply it consistently.
+- Refunds and cancellations must reverse the appropriate original amounts and stock movements exactly once.
+- Display gross profit, operating expenses and net operating result separately. Clearly disclose which direct costs and expenses are included.
+- Never label cash-in-drawer as profit or sales revenue.
+- Use fixed-precision decimal or integer minor-unit arithmetic throughout; define and test rounding at line, invoice and payment level.
+- All dashboard totals must reconcile to source transactions for the same date range and timezone.
+
+### 13.2 Required financial test scenarios
+At minimum, automated tests must cover: fully paid invoice; partially paid invoice; mixed cash/card payment; invoice entirely on credit; partial debt repayment; repayment of an earlier debt; refund; cancelled invoice; cash expense; non-cash expense; supplier payment; shift opening/closing; cash variance; and concurrent credit attempts near the limit. Verify that no scenario double-counts revenue, cash or debt.
+
 ## 14. Reservations and maintenance
 
 Reservations for PlayStation and billiards store customer/contact, device, start/end, deposit, balance, status (requested, confirmed, arrived, cancelled, no-show), and creating/changing employee.
@@ -247,6 +278,14 @@ Log authentication/failed attempts, user/permission changes, session lifecycle/d
 Each event records actor, timestamp, action, affected record, before/after values where relevant, reason, approval and available request/device metadata.
 
 Audit records must be append-only for normal users. Never log passwords, PINs, tokens or secrets.
+
+### 16.1 Financial correction workflow
+- Never edit a posted financial transaction in place.
+- Use a linked reversal, refund, cancellation or adjustment record that references the original transaction.
+- Require a reason and the configured approval for sensitive corrections.
+- Preserve the original record, correction record, actor, approver and timestamps.
+- Make the current balance derive from the transaction ledger, not from an untraceable manual overwrite.
+- Provide owner-visible filters for unusual discounts, repeated cancellations, refunds, stock corrections and cash variances.
 
 ## 17. Offline mode and synchronization
 
@@ -280,6 +319,14 @@ Requirements:
 - Minimal customer personal-data collection.
 
 Backups: scheduled automatic backups, owner-triggered backup where supported, encrypted storage, retention policy, restore procedure and periodic restore tests. Display last successful backup. A backup is not proven until restoration has been tested.
+
+Backup acceptance requirements:
+- Show backup timestamp, status, destination and retention information without exposing credentials.
+- Alert the owner when scheduled backups fail or become stale.
+- Document recovery point and recovery time expectations.
+- Test restoration into a separate safe environment before treating a backup as verified.
+- Never overwrite production data during a restore test.
+- Ensure uploaded receipt/attachment files are included in backup coverage where the architecture stores them separately.
 
 ## 19. Printing and documents
 
@@ -328,6 +375,47 @@ Offline-first architecture/synchronization; QR customer requests; WhatsApp integ
 Do not delay a stable usable POS while attempting every advanced feature at once.
 
 ## 23. Acceptance criteria
+
+A release is acceptable only when:
+- Owner can configure devices, products, prices and staff.
+- Employee can run sessions and combine them with product sales.
+- Billing correctly handles pauses, resumes and rounding.
+- Invoice totals reconcile with payments and outstanding balances.
+- Mixed and partial payments work.
+- Credit limits cannot be exceeded through concurrent requests.
+- Every debt and repayment is traceable.
+- Product sales and stock movements remain consistent.
+- Expected cash follows the defined formula.
+- Employees can close only authorized shifts.
+- Financial corrections are auditable and cannot erase history.
+- Unauthorized backend requests are rejected.
+- Reports distinguish revenue, collected cash, debt and profit.
+- Backups can be restored successfully.
+- All visible application text is French.
+- Desktop and mobile browser workflows work.
+
+### 23.1 Security and authorization acceptance tests
+- Attempt owner-only actions using an employee and manager account through both UI and direct API requests; all unauthorized attempts must be rejected.
+- Attempt to demote, disable or alter the primary owner using a non-owner account; the operation must fail.
+- Verify row-level/database authorization for every sensitive table and storage bucket where supported.
+- Verify that users cannot read another employee's private shift details unless their role permits it.
+- Verify login throttling, session expiry, logout and secure handling of secrets.
+
+### 23.2 Reliability and concurrency acceptance tests
+- Retry invoice/payment/session requests and verify idempotency prevents duplicate records.
+- Simulate two simultaneous sales of the last stock unit; stock must not become inconsistent or negative unless an explicitly authorized policy allows it.
+- Simulate concurrent credit requests; the configured customer credit limit must never be exceeded.
+- Simulate two employees attempting to start the same device; only one valid active session may be created.
+- Verify all financial and inventory operations either commit completely or roll back completely.
+- Run database migrations against a copy of existing data and verify preservation before production deployment.
+
+### 23.3 Customer history acceptance tests
+- Verify a customer timeline shows the correct visits, sessions, invoices, purchased products, payments, repayments, refunds and adjustments.
+- Verify timeline entries link to source records and cannot alter balances when viewed.
+- Verify customer data is visible only to authorized roles.
+
+### 23.4 Release evidence
+For every phase, provide the actual test commands, pass/fail results, build output, migration identifiers and any known limitations. Do not report a test as passed if it was not executed.
 
 A release is acceptable only when:
 - Owner can configure devices, products, prices and staff.
