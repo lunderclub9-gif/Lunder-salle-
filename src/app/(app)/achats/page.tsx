@@ -124,7 +124,11 @@ export default async function PurchasesPage() {
                 <tr key={row.purchase.id} className="transition hover:bg-surface-2/40">
                   <Td className="text-muted">{formatDateFr(row.purchase.purchaseDate, false)}</Td>
                   <Td className="font-medium">{row.supplierName ?? "—"}</Td>
-                  <Td className="text-muted">{row.purchase.reference || "—"}</Td>
+                  <Td className="text-muted">
+                    <Link href={`/imprimer/achat/${row.purchase.id}`} className="hover:underline">
+                      {row.purchase.reference || "Bon de commande"}
+                    </Link>
+                  </Td>
                   <Td className="text-right">{formatCents(Number(row.purchase.totalCents))}</Td>
                   <Td>
                     <span className="capitalize">{PURCHASE_STATUS_LABELS[row.purchase.status] ?? row.purchase.status}</span>
