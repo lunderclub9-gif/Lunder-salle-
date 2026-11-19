@@ -1,0 +1,31 @@
+# Dépendances
+node_modules
+.pnp
+.pnp.js
+
+# Build
+.next
+out
+build
+dist
+
+# Environnement (jamais versionné)
+.env
+.env.*
+!.env.example
+
+# Base de données locale de développement
+.pgdata
+.test-db-url
+
+# Journaux locaux
+*.log
+
+# Divers
+.DS_Store
+*.pem
+npm-debug.log*
+yarn-error.log*
+coverage
+next-env.d.ts
+*.tsbuildinfo
