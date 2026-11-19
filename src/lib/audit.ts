@@ -76,4 +76,10 @@ export const AUDIT_ACTIONS = {
   HANDOVER_RECORDED: "caisse.transfert",
   BACKUP_CREATED: "sauvegarde.creee",
   BACKUP_RESTORED: "sauvegarde.restauree",
+  SUPPLIER_CREATED: "fournisseur.cree",
+  PURCHASE_CREATED: "achat.cree",
+  PURCHASE_RECEIVED: "achat.reçu",
+  PURCHASE_CANCELLED: "achat.annule",
+  SUPPLIER_PAYMENT_RECORDED: "fournisseur.paiement",
+  SUPPLIER_PAYMENT_RETURNED: "fournisseur.remboursement",
 } as const;

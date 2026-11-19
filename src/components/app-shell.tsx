@@ -49,6 +49,8 @@ const NAV_ICONS = {
   reports: BarChart3,
   expenses: Receipt,
   financial: BarChart3,
+  receipt: Receipt,
+  suppliers: Receipt,
 };
 
 export function AppShell({

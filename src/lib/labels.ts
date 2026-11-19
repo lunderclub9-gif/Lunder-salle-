@@ -50,12 +50,23 @@ export const SESSION_STATUS_LABELS: Record<string, string> = {
   cancelled: "Annulée",
 };
 
-export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+export const PAYMENT_LOOKUP: Record<string, string> = {
   cash: "Espèces",
   card: "Carte",
   mobile: "Paiement mobile",
   transfer: "Virement",
   credit: "Crédit client",
+};
+
+export const PAYMENT_METHOD_LABELS: Record<string, string> = PAYMENT_LOOKUP;
+
+export const PURCHASE_ITEM_KIND_LABELS: Record<string, string> = {
+  initial: "Achat reçu",
+  sale: "Vente",
+  purchase: "Achat",
+  return: "Retour fournisseur",
+  adjustment: "Ajustement",
+  loss: "Perte",
 };
 
 export const INVOICE_STATUS_LABELS: Record<string, string> = {
@@ -118,4 +129,16 @@ export const CASH_MOVEMENT_LABELS: Record<string, string> = {
 export const REFUND_STATUS_LABELS: Record<string, string> = {
   pending: "En attente",
   issued: "Émis",
+};
+
+export const PURCHASE_STATUS_LABELS: Record<string, string> = {
+  pending: "En attente",
+  received: "Reçu",
+  cancelled: "Annulé",
+};
+
+export const SUPPLIER_PAYMENT_STATUS_LABELS: Record<string, string> = {
+  pending: "En attente",
+  paid: "Payé",
+  returned: "Retourné",
 };

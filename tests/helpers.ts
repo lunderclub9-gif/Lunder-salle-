@@ -22,6 +22,7 @@ export async function resetDatabase() {
   await db.execute(sql`
     truncate table
       audit_logs, idempotency_keys, credit_transactions, payments, invoice_items, invoices,
+      supplier_payments, purchase_items, purchases, supplier_balances, suppliers,
       stock_movements, session_events, sessions, cash_movements, shifts, login_attempts,
       auth_sessions, user_permissions, role_permissions, customers, products, product_categories,
       device_status_history, devices, users, business_settings

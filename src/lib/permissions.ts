@@ -21,6 +21,8 @@ export const PERMISSIONS = {
   SHIFTS_CLOSE_ANY: "shifts.close_any",
   AUDIT_VIEW: "audit.view",
   REPORTS_VIEW: "reports.view",
+  SUPPLIERS_MANAGE: "suppliers.manage",
+  PURCHASES_MANAGE: "purchases.manage",
   DISCOUNTS_APPLY: "discounts.apply",
   EXPENSES_MANAGE: "expenses.manage",
   CASH_MOVEMENTS_MANAGE: "cash_movements.manage",
@@ -68,6 +70,8 @@ export const ROLE_DEFAULTS: Record<Role, Permission[]> = {
     PERMISSIONS.REFUNDS_MANAGE,
     PERMISSIONS.HANDOVER_MANAGE,
     PERMISSIONS.FINANCIAL_AUDIT_VIEW,
+    PERMISSIONS.SUPPLIERS_MANAGE,
+    PERMISSIONS.PURCHASES_MANAGE,
   ],
   cashier: [
     PERMISSIONS.DASHBOARD_VIEW,
@@ -113,4 +117,6 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   [PERMISSIONS.HANDOVER_MANAGE]: "Enregistrer un transfert de caisse",
   [PERMISSIONS.BACKUP_MANAGE]: "Déclencher une sauvegarde",
   [PERMISSIONS.FINANCIAL_AUDIT_VIEW]: "Consulter l'audit financier",
+  [PERMISSIONS.SUPPLIERS_MANAGE]: "Gérer les fournisseurs",
+  [PERMISSIONS.PURCHASES_MANAGE]: "Gérer les achats",
 };

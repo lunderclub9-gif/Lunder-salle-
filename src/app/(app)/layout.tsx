@@ -29,6 +29,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/equipe", label: "Équipe", icon: "staff", section: "gestion", permission: PERMISSIONS.STAFF_MANAGE },
     { href: "/audit", label: "Journal d'audit", icon: "audit", section: "gestion", permission: PERMISSIONS.AUDIT_VIEW },
     { href: "/depenses", label: "Dépenses", icon: "expenses", section: "gestion", permission: PERMISSIONS.EXPENSES_MANAGE },
+    { href: "/fournisseurs", label: "Fournisseurs", icon: "receipt", section: "gestion", permission: PERMISSIONS.SUPPLIERS_MANAGE },
+    { href: "/achats", label: "Achats", icon: "invoices", section: "gestion", permission: PERMISSIONS.PURCHASES_MANAGE },
     { href: "/financial-audit", label: "Audit financier", icon: "financial", section: "gestion", permission: PERMISSIONS.FINANCIAL_AUDIT_VIEW },
     { href: "/parametres", label: "Paramètres", icon: "settings", section: "gestion", permission: PERMISSIONS.SETTINGS_MANAGE },
   ];

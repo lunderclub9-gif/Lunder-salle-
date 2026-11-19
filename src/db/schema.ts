@@ -105,6 +105,12 @@ export const creditTxTypeEnum = pgEnum("credit_tx_type", [
   "reversal",
 ]);
 
+export const supplierPaymentStatusEnum = pgEnum("supplier_payment_status", [
+  "pending",
+  "paid",
+  "returned",
+]);
+
 export const shiftStatusEnum = pgEnum("shift_status", ["open", "closed"]);
 
 export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
@@ -119,6 +125,72 @@ export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
 /* ------------------------------------------------------------------ *
  * Séquences
  * ------------------------------------------------------------------ */
+
+export const suppliers = pgTable("suppliers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  contact: text("contact").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  notes: text("notes").notNull().default(""),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("suppliers_name_idx").on(t.name)]);
+
+export const supplierBalances = pgTable("supplier_balances", {
+  supplierId: uuid("supplier_id")
+    .notNull()
+    .references(() => suppliers.id, { onDelete: "cascade" }),
+  totalPurchasesCents: bigint("total_purchases_cents", { mode: "number" }).notNull().default(0),
+  totalPaidCents: bigint("total_paid_cents", { mode: "number" }).notNull().default(0),
+  balanceCents: bigint("balance_cents", { mode: "number" }).notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("supplier_balances_idx").on(t.supplierId)]);
+
+export const purchases = pgTable("purchases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  supplierId: uuid("supplier_id")
+    .notNull()
+    .references(() => suppliers.id, { onDelete: "restrict" }),
+  purchaseDate: timestamp("purchase_date", { withTimezone: true }).notNull().defaultNow(),
+  reference: text("reference").notNull().default(""),
+  employeeId: uuid("employee_id").references(() => users.id, { onDelete: "set null" }),
+  totalCents: bigint("total_cents", { mode: "number" }).notNull().default(0),
+  status: text("status").notNull().default("pending"),
+  notes: text("notes").notNull().default(""),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("purchases_supplier_idx").on(t.supplierId, t.createdAt)]);
+
+export const purchaseItems = pgTable("purchase_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  purchaseId: uuid("purchase_id")
+    .notNull()
+    .references(() => purchases.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "restrict" }),
+  quantity: bigint("quantity", { mode: "number" }).notNull(),
+  unitCostCents: bigint("unit_cost_cents", { mode: "number" }).notNull(),
+  lineTotalCents: bigint("line_total_cents", { mode: "number" }).notNull(),
+});
+
+export const supplierPayments = pgTable(
+  "supplier_payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    supplierId: uuid("supplier_id")
+      .notNull()
+      .references(() => suppliers.id, { onDelete: "restrict" }),
+    purchaseId: uuid("purchase_id").references(() => purchases.id, { onDelete: "set null" }),
+    status: supplierPaymentStatusEnum("status").notNull().default("pending"),
+    amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
+    paymentDate: timestamp("payment_date", { withTimezone: true }).notNull().defaultNow(),
+    paidBy: uuid("paid_by").references(() => users.id, { onDelete: "set null" }),
+    reference: text("reference").notNull().default(""),
+    notes: text("notes").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("supplier_payments_supplier_idx").on(t.supplierId, t.createdAt)],
+);
 
 export const backupRecords = pgTable("backup_records", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -518,6 +590,7 @@ export const stockMovements = pgTable(
     quantity: bigint("quantity", { mode: "number" }).notNull(),
     unitCostCents: bigint("unit_cost_cents", { mode: "number" }).notNull().default(0),
     invoiceId: uuid("invoice_id"),
+    purchaseId: uuid("purchase_id"),
     userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
     reason: text("reason").notNull().default(""),
     stockAfter: bigint("stock_after", { mode: "number" }).notNull().default(0),
@@ -686,6 +759,23 @@ export const gameSessionsRelations = relations(gameSessions, ({ one, many }) => 
   events: many(sessionEvents),
 }));
 
+export const suppliersRelations = relations(suppliers, ({ one, many }) => ({
+  balances: one(supplierBalances, { fields: [suppliers.id], references: [supplierBalances.supplierId] }),
+  purchases: many(purchases),
+}));
+
+export const purchasesRelations = relations(purchases, ({ one, many }) => ({
+  supplier: one(suppliers, { fields: [purchases.supplierId], references: [suppliers.id] }),
+  employee: one(users, { fields: [purchases.employeeId], references: [users.id] }),
+  items: many(purchaseItems),
+  payments: many(supplierPayments),
+}));
+
+export const purchaseItemsRelations = relations(purchaseItems, ({ one }) => ({
+  purchase: one(purchases, { fields: [purchaseItems.purchaseId], references: [purchases.id] }),
+  product: one(products, { fields: [purchaseItems.productId], references: [products.id] }),
+}));
+
 export const invoicesRelations = relations(invoices, ({ one, many }) => ({
   customer: one(customers, { fields: [invoices.customerId], references: [customers.id] }),
   employee: one(users, { fields: [invoices.employeeId], references: [users.id] }),
@@ -710,3 +800,9 @@ export type InvoiceItem = typeof invoiceItems.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type Shift = typeof shifts.$inferSelect;
 export type BusinessSettings = typeof businessSettings.$inferSelect;
+export type Supplier = typeof suppliers.$inferSelect;
+export type SupplierBalance = typeof supplierBalances.$inferSelect;
+export type Purchase = typeof purchases.$inferSelect;
+export type PurchaseItem = typeof purchaseItems.$inferSelect;
+export type SupplierPayment = typeof supplierPayments.$inferSelect;
+
