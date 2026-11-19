@@ -9,6 +9,7 @@ import {
   payments,
   products,
   stockMovements,
+  refunds,
 } from "@/db/schema";
 import { AppError } from "../errors";
 import { logAudit, AUDIT_ACTIONS } from "../audit";
@@ -115,9 +116,13 @@ export async function cancelInvoice(
       .where(eq(payments.invoiceId, invoice.id));
 
     const cashLike = paymentRows.filter((payment) => payment.method !== "credit");
-    if (cashLike.length > 0) {
+    const existingRefund = await tx
+      .select()
+      .from(refunds)
+      .where(and(eq(refunds.invoiceId, invoice.id), eq(refunds.status, "issued")));
+    if (cashLike.length > 0 || existingRefund.length > 0) {
       throw new AppError(
-        "Cette facture comporte des encaissements. Le remboursement sera disponible en Phase 2 ; créez une correction tracée.",
+        "Cette facture comporte des encaissements ou un remboursement déjà émis. Le remboursement sera disponible en Phase 2 ; créez une correction tracée.",
       );
     }
 

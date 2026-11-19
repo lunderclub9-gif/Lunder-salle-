@@ -24,6 +24,7 @@ import {
 } from "@/components/ui";
 import { ActionForm } from "@/components/action-form";
 import { addPaymentAction, cancelInvoiceAction } from "@/app/actions/invoices";
+import { issueRefundAction } from "@/app/actions/refunds";
 import { getOpenShift } from "@/lib/services/shifts";
 
 export const dynamic = "force-dynamic";
@@ -226,6 +227,36 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                   </Field>
                 </ActionForm>
               )}
+            </Card>
+          ) : null}
+
+          {!cancelled && can(user, PERMISSIONS.REFUNDS_MANAGE) && paymentRows.some((paymentRow) => paymentRow.payment.method !== "credit") ? (
+            <Card>
+              <CardTitle title="Rembourser la facture" subtitle="Remboursement tracé dans la caisse." />
+              <ActionForm action={issueRefundAction} submitLabel="Émettre le remboursement" variant="danger">
+                <input type="hidden" name="invoiceId" value={invoice.id} />
+                <div className="space-y-2">
+                  <Field label="Mode de remboursement">
+                    <select name="refundMethod" className="h-11 w-full rounded-xl border border-border bg-surface px-3 text-sm" defaultValue="cash">
+                      <option value="cash">Espèces</option>
+                      <option value="card">Carte</option>
+                      <option value="mobile">Paiement mobile</option>
+                      <option value="transfer">Virement</option>
+                    </select>
+                  </Field>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Montant à rembourser (DA)">
+                      <Input name="amount" inputMode="decimal" defaultValue={(balance / 100).toFixed(2)} />
+                    </Field>
+                    <Field label="Référence (facultatif)">
+                      <Input name="reference" placeholder="Référence banque / transaction" />
+                    </Field>
+                  </div>
+                  <Field label="Motif du remboursement">
+                    <Input name="reason" placeholder="Retour client, erreur de vente…" required />
+                  </Field>
+                </div>
+              </ActionForm>
             </Card>
           ) : null}
 

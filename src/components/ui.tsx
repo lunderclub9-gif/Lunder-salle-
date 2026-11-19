@@ -277,3 +277,56 @@ export function PageHeader({
     </div>
   );
 }
+export function Label({
+  htmlFor,
+  children,
+  className,
+}: {
+  htmlFor?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className={cn(
+        "block text-xs font-medium tracking-wide text-muted uppercase",
+        className,
+      )}
+    >
+      {children}
+    </label>
+  );
+}
+export function Sheet({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <div className="relative">{children}</div>;
+}
+export function SheetTrigger({ children, ...props }: React.HTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-1.5 text-xs text-muted hover:bg-surface-3"
+      type="button"
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+export function SheetContent({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <div className="overflow-auto rounded-xl border border-border bg-surface p-4">{children}</div>;
+}
+
+export function SheetHeader({ children }: { children: React.ReactNode }) {
+  return <div className="mb-3">{children}</div>;
+}
+export function SheetTitle({ children }: { children: React.ReactNode }) {
+  return <h2 className="font-semibold">{children}</h2>;
+}

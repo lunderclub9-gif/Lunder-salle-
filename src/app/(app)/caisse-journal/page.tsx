@@ -1,204 +1,234 @@
+import Link from "next/link";
 import { desc, eq, sql } from "drizzle-orm";
-import { Banknote, Lock, Unlock, Wallet } from "lucide-react";
+import { Banknote, Receipt, ArrowUpDown } from "lucide-react";
 import { db } from "@/db";
-import { payments, shifts, users } from "@/db/schema";
-import { requirePermission } from "@/lib/auth";
+import { cashMovements, expenses, expenseCategories, cashHandover, users, shifts } from "@/db/schema";
+import { requirePermission, can } from "@/lib/auth";
 import { PERMISSIONS } from "@/lib/permissions";
-import { closeShiftAction, openShiftAction } from "@/app/actions/shifts";
-import { computeExpectedCash, getOpenShift } from "@/lib/services/shifts";
+import { listCashMovements } from "@/lib/services/cash";
+import { listExpensesByShift } from "@/lib/services/expenses";
+import { listHandovers } from "@/lib/services/handover";
 import { formatCents } from "@/lib/money";
 import { formatDateFr } from "@/lib/cn";
-import { PAYMENT_METHOD_LABELS, SHIFT_STATUS_LABELS } from "@/lib/labels";
-import {
-  Alert,
-  Badge,
-  Card,
-  CardTitle,
-  Field,
-  Input,
-  PageHeader,
-  Table,
-  Td,
-  Th,
-} from "@/components/ui";
+import { CASH_MOVEMENT_LABELS, EXPENSE_CATEGORY_LABELS } from "@/lib/labels";
+import { Badge, Card, EmptyState, PageHeader, Table, Td, Th } from "@/components/ui";
 import { ActionForm } from "@/components/action-form";
+import { depositCashAction, withdrawCashAction } from "@/app/actions/cash-movements";
+import { recordHandoverAction } from "@/app/actions/handover";
+import { issueRefundAction } from "@/app/actions/refunds";
+import { listOpenShiftExpenses } from "@/lib/services/expenses";
+import { listOpenShiftRefunds } from "@/lib/services/refunds";
+import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
+import { ArrowRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function ShiftPage() {
+export default async function CaisseJournalPage() {
   const user = await requirePermission(PERMISSIONS.SHIFTS_OWN);
-  const shift = await getOpenShift(user.id);
+  const openShift = await db
+    .select()
+    .from(shifts)
+    .where(eq(shifts.status, "open"))
+    .limit(1);
 
-  const [history, paymentSummary] = await Promise.all([
-    db
-      .select({ shift: shifts, userName: users.fullName })
-      .from(shifts)
-      .innerJoin(users, eq(users.id, shifts.userId))
-      .orderBy(desc(shifts.openedAt))
-      .limit(30),
-    shift
-      ? db
-          .select({ method: payments.method, amount: sql<number>`coalesce(sum(${payments.amountCents}), 0)::int` })
-          .from(payments)
-          .where(eq(payments.shiftId, shift.id))
-          .groupBy(payments.method)
-      : Promise.resolve([]),
+  const shift = openShift[0] ?? null;
+
+  if (!shift) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Journal de caisse" description="Détails des mouvements pour la caisse ouverte." />
+        <Card>
+          <EmptyState title="Aucune caisse ouverte" description="Ouvrez votre caisse pour voir les mouvements ici." />
+        </Card>
+      </div>
+    );
+  }
+
+  const [movements, expenseRows, handoverRows] = await Promise.all([
+    listCashMovements(shift.id),
+    listExpensesByShift(shift.id),
+    listHandovers(shift.id),
   ]);
 
-  const expected = shift ? await computeExpectedCash(shift.id) : 0;
+  const openExpenses = await listOpenShiftExpenses(shift.id);
+  const openRefunds = await listOpenShiftRefunds(shift.id);
+
+  const expected = await db.execute<{ expected: string; counted: string | null; variance: string | null }>(sql`
+    select
+      coalesce(expected_cash_cents, 0)::text as expected,
+      counted_cash_cents::text as counted,
+      variance_cents::text as variance
+    from shifts
+    where id = ${shift.id}
+  `);
+  const expectedCash = Number(expected[0]?.expected ?? 0);
+  const countedCash = expected[0]?.counted ? Number(expected[0].counted) : null;
+  const variance = expected[0]?.variance ? Number(expected[0].variance) : null;
+
+  const categoryMap = Object.fromEntries(
+    (await db.select({ id: expenses.categoryId, name: expenseCategories.name }).from(expenses).leftJoin(expenseCategories, eq(expenses.categoryId, expenseCategories.id)).limit(50)).map((r) => [r.id, r.name]),
+  );
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Ma caisse"
-        description="Chaque employé ouvre sa propre caisse. La caisse attendue est calculée à partir des transactions réelles."
+        title={`Journal — Caisse « ${shift.registerName} »`}
+        description={`Ouverte par ${formatDateFr(shift.openedAt)} · fonds de départ ${formatCents(Number(shift.openingCashCents))}`}
       />
 
-      {shift ? (
-        <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-          <Card>
-            <CardTitle
-              title="Caisse en cours"
-              subtitle={`${shift.registerName} · ouverte le ${formatDateFr(shift.openedAt)}`}
-              action={<Badge tone="success">Ouverte</Badge>}
-            />
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-border bg-surface-2/40 p-3">
-                <p className="text-[11px] text-muted">Fonds de départ</p>
-                <p className="font-display mt-1 text-lg font-semibold">
-                  {formatCents(Number(shift.openingCashCents))}
-                </p>
-              </div>
-              <div className="rounded-xl border border-success/30 bg-success/10 p-3">
-                <p className="text-[11px] text-success">Caisse attendue</p>
-                <p className="font-display mt-1 text-lg font-semibold text-success">{formatCents(expected)}</p>
-              </div>
-              <div className="rounded-xl border border-border bg-surface-2/40 p-3">
-                <p className="text-[11px] text-muted">Encaissements</p>
-                <p className="font-display mt-1 text-lg font-semibold">
-                  {formatCents(expected - Number(shift.openingCashCents))}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <p className="mb-2 text-xs font-medium tracking-wide text-muted uppercase">Détail par mode</p>
-              {paymentSummary.length === 0 ? (
-                <p className="text-sm text-muted">Aucun encaissement sur cette caisse.</p>
-              ) : (
-                <ul className="grid gap-2 sm:grid-cols-2">
-                  {paymentSummary.map((row) => (
-                    <li
-                      key={row.method}
-                      className="flex items-center justify-between rounded-lg bg-surface-2/40 px-3 py-2 text-sm"
-                    >
-                      <span className="text-muted">{PAYMENT_METHOD_LABELS[row.method] ?? row.method}</span>
-                      <span className="font-medium">{formatCents(Number(row.amount))}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed text-muted">
-                <Banknote className="mt-0.5 h-3 w-3 shrink-0" />
-                Seuls les paiements en espèces alimentent la caisse physique. Le crédit accordé et les
-                paiements carte/mobile/virement n&apos;y sont pas ajoutés.
-              </p>
-            </div>
-          </Card>
-
-          <Card>
-            <CardTitle title="Clôturer la caisse" subtitle="Comptez le liquide présent dans le tiroir." />
-            <ActionForm
-              action={closeShiftAction}
-              submitLabel="Clôturer la caisse"
-              variant="danger"
-              hidden={{ shiftId: shift.id }}
-            >
-              <Field label="Montant compté (DA)">
-                <Input name="countedCash" inputMode="decimal" placeholder={(expected / 100).toFixed(2)} required />
-              </Field>
-              <Field label="Motif en cas d'écart">
-                <Input name="varianceReason" placeholder="Erreur de rendu, fonds manquant…" />
-              </Field>
-              <Alert tone="warning">
-                La clôture est définitive. Toute correction ultérieure devra passer par une écriture
-                d&apos;ajustement tracée.
-              </Alert>
-            </ActionForm>
-          </Card>
-        </div>
-      ) : (
-        <Card className="mx-auto max-w-lg">
-          <CardTitle title="Ouvrir la caisse" subtitle="Le fonds de départ permet de calculer les écarts." />
-          <ActionForm action={openShiftAction} submitLabel="Ouvrir la caisse">
-            <Field label="Nom de la caisse">
-              <Input name="registerName" defaultValue="Caisse principale" maxLength={80} />
-            </Field>
-            <Field label="Fonds de départ (DA)">
-              <Input name="openingCash" inputMode="decimal" placeholder="0.00" defaultValue="0.00" />
-            </Field>
-            <p className="flex items-start gap-1.5 text-[11px] text-muted">
-              <Unlock className="mt-0.5 h-3 w-3 shrink-0" />
-              Une seule caisse ouverte par employé. L&apos;ouverture est enregistrée dans le journal d&apos;audit.
-            </p>
-          </ActionForm>
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Card>
+          <div className="text-xs text-muted">Caisse attendue</div>
+          <div className="text-xl font-semibold">{formatCents(expectedCash)}</div>
         </Card>
-      )}
+        <Card>
+          <div className="text-xs text-muted">Comptée</div>
+          <div className="text-xl font-semibold">{countedCash != null ? formatCents(countedCash) : "—"}</div>
+        </Card>
+        <Card>
+          <div className="text-xs text-muted">Écart</div>
+          <div className={`text-xl font-semibold ${variance != null && variance !== 0 ? "text-warning" : "text-muted"}`}>
+            {variance != null ? formatCents(variance) : "—"}
+          </div>
+        </Card>
+        <Card>
+          <div className="text-xs text-muted">Mouvements</div>
+          <div className="text-xl font-semibold">{movements.length}</div>
+        </Card>
+      </div>
 
       <Card>
-        <CardTitle title="Historique des caisses" subtitle="Les clôtures confirmées ne peuvent plus être modifiées." />
-        {history.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted">Aucune caisse enregistrée.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Dépôts et retraits</h2>
+            <p className="text-xs text-muted">Dépôt en espèces ou retrait de la caisse.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ActionForm action={depositCashAction} submitLabel="Dépôt" variant="secondary">
+              <div className="flex items-center gap-2">
+                <Banknote className="h-4 w-4" />
+                <input type="number" name="amount" min="0" step="0.01" inputMode="decimal" className="h-10 w-28 rounded-xl border border-border bg-surface px-3 text-sm text-right" placeholder="Montant DA" />
+                <input type="text" name="reason" className="h-10 w-40 rounded-xl border border-border bg-surface px-3 text-sm" placeholder="Motif" />
+              </div>
+            </ActionForm>
+            <ActionForm action={withdrawCashAction} submitLabel="Retrait" variant="secondary">
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className="h-4 w-4" />
+                <input type="number" name="amount" min="0" step="0.01" inputMode="decimal" className="h-10 w-28 rounded-xl border border-border bg-surface px-3 text-sm text-right" placeholder="Montant DA" />
+                <input type="text" name="reason" className="h-10 w-40 rounded-xl border border-border bg-surface px-3 text-sm" placeholder="Motif" />
+              </div>
+            </ActionForm>
+          </div>
+        </div>
+
+        {movements.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted">Aucun mouvement de caisse pour le moment.</p>
         ) : (
           <Table>
             <thead>
               <tr>
-                <Th>Employé</Th>
-                <Th>Ouverture</Th>
-                <Th>Clôture</Th>
-                <Th className="text-right">Départ</Th>
-                <Th className="text-right">Attendu</Th>
-                <Th className="text-right">Compté</Th>
-                <Th className="text-right">Écart</Th>
-                <Th>Statut</Th>
+                <Th>Date</Th>
+                <Th>Type</Th>
+                <Th>Montant</Th>
+                <Th>Motif</Th>
+                <Th>Responsable</Th>
               </tr>
             </thead>
             <tbody>
-              {history.map(({ shift: row, userName }) => {
-                const variance = Number(row.varianceCents ?? 0);
-                return (
-                  <tr key={row.id}>
-                    <Td className="font-medium">{userName}</Td>
-                    <Td className="text-muted">{formatDateFr(row.openedAt)}</Td>
-                    <Td className="text-muted">{row.closedAt ? formatDateFr(row.closedAt) : "—"}</Td>
-                    <Td className="text-right text-muted">{formatCents(Number(row.openingCashCents))}</Td>
-                    <Td className="text-right">{row.expectedCashCents !== null ? formatCents(Number(row.expectedCashCents)) : "—"}</Td>
-                    <Td className="text-right">
-                      {row.countedCashCents !== null ? formatCents(Number(row.countedCashCents)) : "—"}
-                    </Td>
-                    <Td className={`text-right ${variance === 0 ? "text-muted" : variance < 0 ? "text-danger" : "text-warning"}`}>
-                      {row.varianceCents !== null ? formatCents(variance) : "—"}
-                    </Td>
-                    <Td>
-                      {row.status === "open" ? (
-                        <Badge tone="success">
-                          <Unlock className="h-3 w-3" /> {SHIFT_STATUS_LABELS.open}
-                        </Badge>
-                      ) : (
-                        <Badge tone="neutral">
-                          <Lock className="h-3 w-3" /> {SHIFT_STATUS_LABELS.closed}
-                        </Badge>
-                      )}
-                    </Td>
-                  </tr>
-                );
-              })}
+              {movements.map((row) => (
+                <tr key={row.movement.id}>
+                  <Td className="text-muted">{formatDateFr(row.movement.createdAt, false)}</Td>
+                  <Td>
+                    <Badge>{CASH_MOVEMENT_LABELS[row.movement.type as keyof typeof CASH_MOVEMENT_LABELS] ?? row.movement.type}</Badge>
+                  </Td>
+                  <Td className={`font-medium ${row.movement.type === "deposit" || row.movement.type === "credit_repayment" ? "text-success" : "text-danger"}`}>
+                    {formatCents(Number(row.movement.amountCents))}
+                  </Td>
+                  <Td className="text-muted max-w-xs truncate">{row.movement.reason || "—"}</Td>
+                  <Td className="text-muted">{row.userName || "—"}</Td>
+                </tr>
+              ))}
             </tbody>
           </Table>
         )}
-        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted">
-          <Wallet className="h-3 w-3" /> Les dépenses, retraits et transferts de caisse arrivent en Phase 2.
-        </p>
+      </Card>
+
+      <Card>
+        <h2 className="font-semibold">Dépenses de la caisse</h2>
+        <p className="text-xs text-muted">Dépenses payées depuis cette caisse.</p>
+        {expenseRows.length === 0 ? (
+          <p className="mt-3 py-4 text-center text-sm text-muted">Aucune dépense enregistrée depuis cette caisse.</p>
+        ) : (
+          <Table className="mt-3">
+            <thead>
+              <tr>
+                <Th>Date</Th>
+                <Th>Catégorie</Th>
+                <Th className="text-right">Montant</Th>
+                <Th>Responsable</Th>
+                <Th>Notes</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {expenseRows.map((row) => (
+                <tr key={row.expense.id}>
+                  <Td className="text-muted">{formatDateFr(row.expense.expenseDate, false)}</Td>
+                  <Td>{EXPENSE_CATEGORY_LABELS[row.category as keyof typeof EXPENSE_CATEGORY_LABELS] ?? row.category}</Td>
+                  <Td className="text-right text-danger">{formatCents(Number(row.expense.amountCents))}</Td>
+                  <Td className="text-muted">{row.userName || "—"}</Td>
+                  <Td className="text-muted max-w-xs truncate">{row.expense.notes || "—"}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
+
+      <Card>
+        <h2 className="font-semibold">Transferts de caisse</h2>
+        <p className="text-xs text-muted">Transfert entre employés au sein de cette caisse.</p>
+        <ActionForm action={recordHandoverAction} submitLabel="Enregistrer le transfert" variant="secondary" className="mt-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs text-muted">De (employé)</label>
+              <input type="text" name="fromUserId" className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm" defaultValue={shift.userId} readOnly />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted">À (employé)</label>
+              <input type="text" name="toUserId" className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm" placeholder="Identifiant employé" />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="text-xs text-muted">Motif</label>
+              <input type="text" name="reason" className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm" placeholder="Motif du transfert" />
+            </div>
+          </div>
+        </ActionForm>
+        {handoverRows.length === 0 ? (
+          <p className="mt-3 py-4 text-center text-sm text-muted">Aucun transfert pour cette caisse.</p>
+        ) : (
+          <Table className="mt-3">
+            <thead>
+              <tr>
+                <Th>Date</Th>
+                <Th>De</Th>
+                <Th>À</Th>
+                <Th className="text-right">Montant</Th>
+                <Th>Motif</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {handoverRows.map((row) => (
+                <tr key={row.handover.id}>
+                  <Td className="text-muted">{formatDateFr(row.handover.createdAt, false)}</Td>
+                  <Td className="font-medium">{row.fromName}</Td>
+                  <Td className="font-medium">{row.toName}</Td>
+                  <Td className="text-right text-warning">{formatCents(Number(row.handover.handoverAmountCents))}</Td>
+                  <Td className="text-muted max-w-xs truncate">{row.handover.handoverReason || "—"}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
       </Card>
     </div>
   );

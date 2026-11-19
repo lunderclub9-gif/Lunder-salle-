@@ -74,6 +74,30 @@ export const paymentMethodEnum = pgEnum("payment_method", [
   "credit",
 ]);
 
+export const cashMovementTypeEnum = pgEnum("cash_movement_type", [
+  "deposit",
+  "withdrawal",
+  "credit_repayment",
+  "refund",
+  "expense",
+]);
+
+export const expenseCategoryEnum = pgEnum("expense_category", [
+  "rent",
+  "electricity",
+  "internet",
+  "salaries",
+  "maintenance",
+  "cleaning",
+  "supplies",
+  "other",
+]);
+
+export const refundStatusEnum = pgEnum("refund_status", [
+  "pending",
+  "issued",
+]);
+
 export const creditTxTypeEnum = pgEnum("credit_tx_type", [
   "debt",
   "repayment",
@@ -95,6 +119,15 @@ export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
 /* ------------------------------------------------------------------ *
  * Séquences
  * ------------------------------------------------------------------ */
+
+export const backupRecords = pgTable("backup_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  status: text("status").notNull(),
+  kind: text("kind").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  notes: text("notes").notNull().default(""),
+});
 
 export const invoiceNumberSeq = pgSequence("invoice_number_seq", { startWith: 1 });
 
@@ -307,10 +340,76 @@ export const cashMovements = pgTable(
     type: text("type").notNull(),
     amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
     reason: text("reason").notNull().default(""),
+    invoiceId: uuid("invoice_id"),
+    customerId: uuid("customer_id"),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("cash_movements_shift_idx").on(t.shiftId, t.createdAt)],
+);
+
+export const expenseCategories = pgTable("expense_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const expenses = pgTable(
+  "expenses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    categoryId: uuid("category_id").references(() => expenseCategories.id, { onDelete: "restrict" }),
+    shiftId: uuid("shift_id").references(() => shifts.id, { onDelete: "set null" }),
+    amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
+    paidWithCash: boolean("paid_with_cash").notNull().default(false),
+    expenseDate: timestamp("expense_date", { withTimezone: true }).notNull().defaultNow(),
+    employeeId: uuid("employee_id").references(() => users.id, { onDelete: "set null" }),
+    receiptAttachmentUrl: text("receipt_attachment_url").notNull().default(""),
+    notes: text("notes").notNull().default(""),
+    approvedBy: uuid("approved_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("expenses_shift_idx").on(t.shiftId), index("expenses_category_idx").on(t.categoryId)],
+);
+
+export const cashHandover = pgTable(
+  "cash_handover",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fromUserId: uuid("from_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    toUserId: uuid("to_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    shiftId: uuid("shift_id")
+      .notNull()
+      .references(() => shifts.id, { onDelete: "restrict" }),
+    handoverAmountCents: bigint("handover_amount_cents", { mode: "number" }).notNull(),
+    handoverReason: text("handover_reason").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("cash_handover_shift_idx").on(t.shiftId, t.createdAt)],
+);
+
+export const refunds = pgTable(
+  "refunds",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "restrict" }),
+    customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
+    issuedBy: uuid("issued_by").references(() => users.id, { onDelete: "set null" }),
+    status: refundStatusEnum("status").notNull().default("pending"),
+    amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
+    refundMethod: text("refund_method").notNull().default(""),
+    reference: text("reference").notNull().default(""),
+    reason: text("reason").notNull().default(""),
+    issuedAt: timestamp("issued_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("refunds_invoice_idx").on(t.invoiceId)],
 );
 
 /* ------------------------------------------------------------------ *

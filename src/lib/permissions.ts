@@ -22,6 +22,12 @@ export const PERMISSIONS = {
   AUDIT_VIEW: "audit.view",
   REPORTS_VIEW: "reports.view",
   DISCOUNTS_APPLY: "discounts.apply",
+  EXPENSES_MANAGE: "expenses.manage",
+  CASH_MOVEMENTS_MANAGE: "cash_movements.manage",
+  REFUNDS_MANAGE: "refunds.manage",
+  HANDOVER_MANAGE: "handover.manage",
+  BACKUP_MANAGE: "backup.manage",
+  FINANCIAL_AUDIT_VIEW: "financial_audit.view",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -57,6 +63,11 @@ export const ROLE_DEFAULTS: Record<Role, Permission[]> = {
     PERMISSIONS.AUDIT_VIEW,
     PERMISSIONS.REPORTS_VIEW,
     PERMISSIONS.DISCOUNTS_APPLY,
+    PERMISSIONS.EXPENSES_MANAGE,
+    PERMISSIONS.CASH_MOVEMENTS_MANAGE,
+    PERMISSIONS.REFUNDS_MANAGE,
+    PERMISSIONS.HANDOVER_MANAGE,
+    PERMISSIONS.FINANCIAL_AUDIT_VIEW,
   ],
   cashier: [
     PERMISSIONS.DASHBOARD_VIEW,
@@ -96,4 +107,10 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   [PERMISSIONS.AUDIT_VIEW]: "Consulter le journal d'audit",
   [PERMISSIONS.REPORTS_VIEW]: "Consulter les rapports",
   [PERMISSIONS.DISCOUNTS_APPLY]: "Appliquer une remise",
+  [PERMISSIONS.EXPENSES_MANAGE]: "Enregistrer des dépenses",
+  [PERMISSIONS.CASH_MOVEMENTS_MANAGE]: "Gérer les mouvements de caisse",
+  [PERMISSIONS.REFUNDS_MANAGE]: "Gérer les remboursements",
+  [PERMISSIONS.HANDOVER_MANAGE]: "Enregistrer un transfert de caisse",
+  [PERMISSIONS.BACKUP_MANAGE]: "Déclencher une sauvegarde",
+  [PERMISSIONS.FINANCIAL_AUDIT_VIEW]: "Consulter l'audit financier",
 };

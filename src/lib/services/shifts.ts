@@ -43,14 +43,22 @@ export async function computeExpectedCash(shiftId: string): Promise<number> {
     .from(cashMovements)
     .where(eq(cashMovements.shiftId, shiftId));
 
-  const cashPayments = paymentRows.reduce((total, row) => total + Number(row.amount), 0);
+  const netCashPayments = paymentRows.reduce((total, row) => total + Number(row.amount), 0);
   const movements = movementRows.reduce((total, row) => {
     const amount = Number(row.amount);
-    if (row.type === "deposit" || row.type === "credit_repayment") return total + amount;
-    return total - amount;
+    switch (row.type) {
+      case "deposit":
+      case "credit_repayment":
+        return total + amount;
+      case "withdrawal":
+      case "expense":
+        return total - amount;
+      default:
+        return total;
+    }
   }, 0);
 
-  return Number(shiftRow.openingCashCents) + cashPayments + movements;
+  return Number(shiftRow.openingCashCents) + netCashPayments + movements;
 }
 
 export async function openShift(

@@ -10,7 +10,9 @@ import "./lib";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { sql } from "drizzle-orm";
-import { businessSettings, devices, productCategories, products, rolePermissions } from "../src/db/schema";
+import { businessSettings, devices, expenseCategories, productCategories, products, rolePermissions } from "../src/db/schema";
+import { EXPENSE_CATEGORY_LABELS } from "../src/lib/labels";
+
 import { ROLE_DEFAULTS, type Role } from "../src/lib/permissions";
 
 const url = process.env.DATABASE_URL;
@@ -30,6 +32,13 @@ async function main() {
         .values({ role, permission, allowed: true })
         .onConflictDoNothing();
     }
+  }
+
+  for (const [categoryKey, categoryName] of Object.entries(EXPENSE_CATEGORY_LABELS)) {
+    await db
+      .insert(expenseCategories)
+      .values({ name: categoryName, sortOrder: Object.keys(EXPENSE_CATEGORY_LABELS).indexOf(categoryKey) })
+      .onConflictDoNothing();
   }
 
   const existingDevices = await db.select({ id: devices.id }).from(devices).limit(1);

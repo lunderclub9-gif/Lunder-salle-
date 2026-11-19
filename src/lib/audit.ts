@@ -68,4 +68,12 @@ export const AUDIT_ACTIONS = {
   USER_CREATED: "utilisateur.cree",
   USER_UPDATED: "utilisateur.modifie",
   SETTINGS_UPDATED: "parametres.modifies",
+  EXPENSE_CREATED: "depense.creee",
+  CASH_DEPOSIT: "caisse.depot",
+  CASH_WITHDRAWAL: "caisse.retrait",
+  REFUND_ISSUED: "remboursement.emet",
+  REFUND_CANCELLED: "remboursement.annule",
+  HANDOVER_RECORDED: "caisse.transfert",
+  BACKUP_CREATED: "sauvegarde.creee",
+  BACKUP_RESTORED: "sauvegarde.restauree",
 } as const;

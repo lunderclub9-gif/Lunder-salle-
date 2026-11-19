@@ -95,3 +95,27 @@ export const STOCK_MOVEMENT_LABELS: Record<string, string> = {
   adjustment: "Ajustement",
   loss: "Perte",
 };
+
+export const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
+  rent: "Loyer",
+  electricity: "Électricité",
+  internet: "Internet",
+  salaries: "Salaires",
+  maintenance: "Maintenance",
+  cleaning: "Nettoyage",
+  supplies: "Fournitures",
+  other: "Autre",
+};
+
+export const CASH_MOVEMENT_LABELS: Record<string, string> = {
+  deposit: "Dépôt en caisse",
+  withdrawal: "Retrait de caisse",
+  credit_repayment: "Remboursement de dette",
+  refund: "Remboursement de facture",
+  expense: "Dépense",
+};
+
+export const REFUND_STATUS_LABELS: Record<string, string> = {
+  pending: "En attente",
+  issued: "Émis",
+};
