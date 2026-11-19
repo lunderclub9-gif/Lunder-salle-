@@ -82,4 +82,5 @@ export const AUDIT_ACTIONS = {
   PURCHASE_CANCELLED: "achat.annule",
   SUPPLIER_PAYMENT_RECORDED: "fournisseur.paiement",
   SUPPLIER_PAYMENT_RETURNED: "fournisseur.remboursement",
+  STOCK_ADJUSTED: "stock.ajuste",
 } as const;

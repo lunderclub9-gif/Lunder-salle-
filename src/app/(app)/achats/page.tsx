@@ -11,6 +11,7 @@ import { PURCHASE_STATUS_LABELS } from "@/lib/labels";
 import { Card, EmptyState, Input, Label, PageHeader, Table, Td, Th, Textarea, Select } from "@/components/ui";
 import { ActionForm } from "@/components/action-form";
 import { createPurchaseAction, receivePurchaseAction } from "@/app/actions/purchases";
+import { cancelPurchaseAction } from "@/app/actions/stock";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,7 @@ export default async function PurchasesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Aches"
+        title="Achats"
         description="Commandes fournisseur, réception et suivi des balances."
         actions={can(user, PERMISSIONS.PURCHASES_MANAGE) ? (
           <ActionForm action={createPurchaseAction} submitLabel="Créer un achat">
@@ -115,6 +116,7 @@ export default async function PurchasesPage() {
                 <Th className="text-right">Total</Th>
                 <Th>Statut</Th>
                 <Th>Responsable</Th>
+                <Th>Actions</Th>
               </tr>
             </thead>
             <tbody>
@@ -128,6 +130,34 @@ export default async function PurchasesPage() {
                     <span className="capitalize">{PURCHASE_STATUS_LABELS[row.purchase.status] ?? row.purchase.status}</span>
                   </Td>
                   <Td className="text-muted">{row.employeeName || "—"}</Td>
+                  <Td>
+                    {row.purchase.status === "cancelled" ? (
+                      <span className="text-muted">—</span>
+                    ) : (
+                      <div className="flex flex-wrap items-start gap-2">
+                        {row.purchase.status === "pending" ? (
+                          <ActionForm
+                            action={receivePurchaseAction}
+                            submitLabel="Réceptionner"
+                            pendingLabel="Réception…"
+                            variant="secondary"
+                            size="sm"
+                            hidden={{ purchaseId: row.purchase.id }}
+                          />
+                        ) : null}
+                        <ActionForm
+                          action={cancelPurchaseAction}
+                          submitLabel="Annuler"
+                          pendingLabel="Annulation…"
+                          variant="danger"
+                          size="sm"
+                          hidden={{ purchaseId: row.purchase.id }}
+                        >
+                          <Input name="reason" placeholder="Motif d'annulation" required className="h-8 text-xs" />
+                        </ActionForm>
+                      </div>
+                    )}
+                  </Td>
                 </tr>
               ))}
             </tbody>
